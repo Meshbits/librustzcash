@@ -80,9 +80,9 @@ impl Payment {
     /// internally, so payments must be normalized prior to being passed to the comparison function
     /// returned from this method.
     #[cfg(any(test, feature = "test-dependencies"))]
-    pub(in crate::zip321) fn compare_normalized<'a, P: consensus::Parameters>(
-        params: &'a P,
-    ) -> impl Fn(&Payment, &Payment) -> Ordering + 'a {
+    pub(in crate::zip321) fn compare_normalized<P: consensus::Parameters>(
+        params: &P,
+    ) -> impl Fn(&Payment, &Payment) -> Ordering + '_ {
         move |a: &Payment, b: &Payment| {
             let a_addr = a.recipient_address.encode(params);
             let b_addr = b.recipient_address.encode(params);
@@ -106,7 +106,7 @@ impl Payment {
 /// payment value in the request.
 #[derive(Debug, PartialEq)]
 pub struct TransactionRequest {
-    payments: Vec<Payment>,
+    pub payments: Vec<Payment>,
 }
 
 impl TransactionRequest {
@@ -138,10 +138,10 @@ impl TransactionRequest {
     ///
     /// Returns None if the payment request is empty.
     pub fn to_uri<P: consensus::Parameters>(&self, params: &P) -> Option<String> {
-        fn payment_params<'a>(
-            payment: &'a Payment,
+        fn payment_params(
+            payment: &Payment,
             payment_index: Option<usize>,
-        ) -> impl IntoIterator<Item = String> + 'a {
+        ) -> impl IntoIterator<Item = String> + '_ {
             std::iter::empty()
                 .chain(render::amount_param(payment.amount, payment_index))
                 .chain(
@@ -447,31 +447,34 @@ mod parse {
     }
 
     /// Parses and consumes the leading "zcash:\[address\]" from a ZIP 321 URI.
-    pub fn lead_addr<'a, P: consensus::Parameters>(
-        params: &'a P,
-    ) -> impl Fn(&str) -> IResult<&str, Option<IndexedParam>> + 'a {
+    pub fn lead_addr<P: consensus::Parameters>(
+        params: &P,
+    ) -> impl Fn(&str) -> IResult<&str, Option<IndexedParam>> + '_ {
         move |input: &str| {
-            map_opt(preceded(tag("zcash:"), take_until("?")), |addr_str| {
-                if addr_str == "" {
-                    Some(None) // no address is ok, so wrap in `Some`
-                } else {
-                    // `decode` returns `None` on error, which we want to
-                    // then cause `map_opt` to fail.
-                    RecipientAddress::decode(params, addr_str).map(|a| {
-                        Some(IndexedParam {
-                            param: Param::Addr(a),
-                            payment_index: 0,
+            map_opt(
+                preceded(tag("zcash:"), take_until("?")),
+                |addr_str: &str| {
+                    if addr_str.is_empty() {
+                        Some(None) // no address is ok, so wrap in `Some`
+                    } else {
+                        // `decode` returns `None` on error, which we want to
+                        // then cause `map_opt` to fail.
+                        RecipientAddress::decode(params, addr_str).map(|a| {
+                            Some(IndexedParam {
+                                param: Param::Addr(a),
+                                payment_index: 0,
+                            })
                         })
-                    })
-                }
-            })(input)
+                    }
+                },
+            )(input)
         }
     }
 
     /// The primary parser for <name>=<value> query-string parameter pair.
-    pub fn zcashparam<'a, P: consensus::Parameters>(
-        params: &'a P,
-    ) -> impl Fn(&str) -> IResult<&str, IndexedParam> + 'a {
+    pub fn zcashparam<P: consensus::Parameters>(
+        params: &P,
+    ) -> impl Fn(&str) -> IResult<&str, IndexedParam> + '_ {
         move |input| {
             map_res(
                 separated_pair(indexed_name, char('='), recognize(qchars)),
@@ -519,7 +522,7 @@ mod parse {
     }
 
     /// Parses a value in decimal ZEC.
-    pub fn parse_amount<'a>(input: &'a str) -> IResult<&'a str, Amount> {
+    pub fn parse_amount(input: &str) -> IResult<&str, Amount> {
         map_res(
             tuple((
                 digit1,
@@ -583,7 +586,7 @@ mod parse {
                 .map_err(|e| e.to_string()),
 
             "memo" => memo_from_base64(value)
-                .map(|m| Param::Memo(m))
+                .map(Param::Memo)
                 .map_err(|e| format!("Decoded memo was invalid: {:?}", e)),
 
             other if other.starts_with("req-") => {
@@ -616,8 +619,8 @@ pub mod testing {
     use proptest::prelude::{any, prop_compose, prop_oneof};
     use proptest::strategy::Strategy;
     use zcash_primitives::{
-        consensus::TEST_NETWORK, keys::testing::arb_shielded_addr,
-        legacy::testing::arb_transparent_addr,
+        consensus::TEST_NETWORK, legacy::testing::arb_transparent_addr,
+        sapling::keys::testing::arb_shielded_addr,
         transaction::components::amount::testing::arb_nonnegative_amount,
     };
 

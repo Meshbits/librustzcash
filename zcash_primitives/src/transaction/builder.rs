@@ -12,39 +12,38 @@ use rand::{rngs::OsRng, seq::SliceRandom, CryptoRng, RngCore};
 
 use crate::{
     consensus::{self, BlockHeight},
-    keys::OutgoingViewingKey,
     legacy::TransparentAddress,
     memo::MemoBytes,
     merkle_tree::MerklePath,
-    note_encryption::SaplingNoteEncryption,
-    primitives::{Diversifier, Note, PaymentAddress},
-    prover::TxProver,
-    redjubjub::PrivateKey,
-    sapling::{spend_sig_internal, Node},
+    sapling::{
+        keys::OutgoingViewingKey, note_encryption::sapling_note_encryption, prover::TxProver,
+        redjubjub::PrivateKey, spend_sig_internal, util::generate_random_rseed_internal,
+        Diversifier, Node, Note, PaymentAddress,
+    },
     transaction::{
         components::{
-            amount::Amount, amount::DEFAULT_FEE, OutputDescription, SpendDescription, TxOut,
+            amount::{Amount, DEFAULT_FEE},
+            OutputDescription, SpendDescription, TxOut,
         },
         signature_hash_data, SignableInput, Transaction, TransactionData, SIGHASH_ALL,
     },
-    util::generate_random_rseed_internal,
     zip32::ExtendedSpendingKey,
 };
 
 #[cfg(feature = "transparent-inputs")]
-use crate::{legacy::Script, transaction::components::TxIn};
+use crate::{
+    legacy::Script,
+    transaction::components::{OutPoint, TxIn},
+};
 
 #[cfg(feature = "zfuture")]
 use crate::{
     extensions::transparent::{self as tze, ExtensionTxBuilder, ToPayload},
-    transaction::components::{TzeIn, TzeOut},
+    transaction::components::{TzeIn, TzeOut, TzeOutPoint},
 };
 
-#[cfg(any(feature = "transparent-inputs", feature = "zfuture"))]
-use crate::transaction::components::OutPoint;
-
 #[cfg(any(test, feature = "test-dependencies"))]
-use crate::prover::mock::MockTxProver;
+use crate::sapling::prover::mock::MockTxProver;
 
 const DEFAULT_TX_EXPIRY_DELTA: u32 = 20;
 
@@ -94,35 +93,36 @@ struct SpendDescriptionInfo {
     merkle_path: MerklePath<Node>,
 }
 
-pub struct SaplingOutput {
+pub struct SaplingOutput<P: consensus::Parameters> {
     /// `None` represents the `ovk = ⊥` case.
     ovk: Option<OutgoingViewingKey>,
     to: PaymentAddress,
     note: Note,
     memo: MemoBytes,
+    _params: PhantomData<P>,
 }
 
-impl SaplingOutput {
-    pub fn new<R: RngCore + CryptoRng, P: consensus::Parameters>(
+impl<P: consensus::Parameters> SaplingOutput<P> {
+    pub fn new<R: RngCore + CryptoRng>(
         params: &P,
         height: BlockHeight,
         rng: &mut R,
         ovk: Option<OutgoingViewingKey>,
         to: PaymentAddress,
         value: Amount,
-        memo: Option<MemoBytes>,
+        memo: MemoBytes,
     ) -> Result<Self, Error> {
         Self::new_internal(params, height, rng, ovk, to, value, memo)
     }
 
-    fn new_internal<R: RngCore, P: consensus::Parameters>(
+    fn new_internal<R: RngCore>(
         params: &P,
         height: BlockHeight,
         rng: &mut R,
         ovk: Option<OutgoingViewingKey>,
         to: PaymentAddress,
         value: Amount,
-        memo: Option<MemoBytes>,
+        memo: MemoBytes,
     ) -> Result<Self, Error> {
         let g_d = to.g_d().ok_or(Error::InvalidAddress)?;
         if value.is_negative() {
@@ -142,26 +142,27 @@ impl SaplingOutput {
             ovk,
             to,
             note,
-            memo: memo.unwrap_or_else(MemoBytes::empty),
+            memo,
+            _params: PhantomData::default(),
         })
     }
 
-    pub fn build<P: TxProver, R: RngCore + CryptoRng>(
+    pub fn build<Pr: TxProver, R: RngCore + CryptoRng>(
         self,
-        prover: &P,
-        ctx: &mut P::SaplingProvingContext,
+        prover: &Pr,
+        ctx: &mut Pr::SaplingProvingContext,
         rng: &mut R,
     ) -> OutputDescription {
         self.build_internal(prover, ctx, rng)
     }
 
-    fn build_internal<P: TxProver, R: RngCore>(
+    fn build_internal<Pr: TxProver, R: RngCore>(
         self,
-        prover: &P,
-        ctx: &mut P::SaplingProvingContext,
+        prover: &Pr,
+        ctx: &mut Pr::SaplingProvingContext,
         rng: &mut R,
     ) -> OutputDescription {
-        let mut encryptor = SaplingNoteEncryption::new_internal(
+        let encryptor = sapling_note_encryption::<R, P>(
             self.ovk,
             self.note.clone(),
             self.to.clone(),
@@ -180,9 +181,8 @@ impl SaplingOutput {
         let cmu = self.note.cmu();
 
         let enc_ciphertext = encryptor.encrypt_note_plaintext();
-        let out_ciphertext = encryptor.encrypt_outgoing_plaintext(&cv, &cmu);
-
-        let ephemeral_key = encryptor.epk().clone().into();
+        let out_ciphertext = encryptor.encrypt_outgoing_plaintext(&cv, &cmu, rng);
+        let ephemeral_key = *encryptor.epk();
 
         OutputDescription {
             cv,
@@ -372,7 +372,7 @@ pub struct Builder<'a, P: consensus::Parameters, R: RngCore> {
     fee: Amount,
     anchor: Option<bls12_381::Scalar>,
     spends: Vec<SpendDescriptionInfo>,
-    outputs: Vec<SaplingOutput>,
+    outputs: Vec<SaplingOutput<P>>,
     transparent_inputs: TransparentInputs,
     #[cfg(feature = "zfuture")]
     tze_inputs: TzeInputs<'a, TransactionData>,
@@ -521,7 +521,7 @@ impl<'a, P: consensus::Parameters, R: RngCore> Builder<'a, P, R> {
         ovk: Option<OutgoingViewingKey>,
         to: PaymentAddress,
         value: Amount,
-        memo: Option<MemoBytes>,
+        memo: MemoBytes,
     ) -> Result<(), Error> {
         let output = SaplingOutput::new_internal(
             &self.params,
@@ -645,7 +645,12 @@ impl<'a, P: consensus::Parameters, R: RngCore> Builder<'a, P, R> {
                 return Err(Error::NoChangeAddress);
             };
 
-            self.add_sapling_output(Some(change_address.0), change_address.1, change, None)?;
+            self.add_sapling_output(
+                Some(change_address.0),
+                change_address.1,
+                change,
+                MemoBytes::empty(),
+            )?;
         }
 
         //
@@ -869,7 +874,7 @@ impl<'a, P: consensus::Parameters, R: RngCore + CryptoRng> ExtensionTxBuilder<'a
         &mut self,
         extension_id: u32,
         mode: u32,
-        (outpoint, prevout): (OutPoint, TzeOut),
+        (outpoint, prevout): (TzeOutPoint, TzeOut),
         witness_builder: WBuilder,
     ) -> Result<(), Self::BuildError>
     where
@@ -965,10 +970,9 @@ mod tests {
     use crate::{
         consensus::{self, Parameters, H0, TEST_NETWORK},
         legacy::TransparentAddress,
+        memo::MemoBytes,
         merkle_tree::{CommitmentTree, IncrementalWitness},
-        primitives::Rseed,
-        prover::mock::MockTxProver,
-        sapling::Node,
+        sapling::{prover::mock::MockTxProver, Node, Rseed},
         transaction::components::{amount::Amount, amount::DEFAULT_FEE},
         zip32::{ExtendedFullViewingKey, ExtendedSpendingKey},
     };
@@ -987,7 +991,12 @@ mod tests {
 
         let mut builder = Builder::new(TEST_NETWORK, H0);
         assert_eq!(
-            builder.add_sapling_output(Some(ovk), to, Amount::from_i64(-1).unwrap(), None),
+            builder.add_sapling_output(
+                Some(ovk),
+                to,
+                Amount::from_i64(-1).unwrap(),
+                MemoBytes::empty()
+            ),
             Err(Error::InvalidAmount)
         );
     }
@@ -1106,7 +1115,12 @@ mod tests {
         {
             let mut builder = Builder::new(TEST_NETWORK, H0);
             builder
-                .add_sapling_output(ovk, to.clone(), Amount::from_u64(50000).unwrap(), None)
+                .add_sapling_output(
+                    ovk,
+                    to.clone(),
+                    Amount::from_u64(50000).unwrap(),
+                    MemoBytes::empty(),
+                )
                 .unwrap();
             assert_eq!(
                 builder.build(consensus::BranchId::Sapling, &MockTxProver),
@@ -1155,7 +1169,12 @@ mod tests {
                 )
                 .unwrap();
             builder
-                .add_sapling_output(ovk, to.clone(), Amount::from_u64(30000).unwrap(), None)
+                .add_sapling_output(
+                    ovk,
+                    to.clone(),
+                    Amount::from_u64(30000).unwrap(),
+                    MemoBytes::empty(),
+                )
                 .unwrap();
             builder
                 .add_transparent_output(
@@ -1196,7 +1215,12 @@ mod tests {
                 .add_sapling_spend(extsk, *to.diversifier(), note2, witness2.path().unwrap())
                 .unwrap();
             builder
-                .add_sapling_output(ovk, to, Amount::from_u64(30000).unwrap(), None)
+                .add_sapling_output(
+                    ovk,
+                    to,
+                    Amount::from_u64(30000).unwrap(),
+                    MemoBytes::empty(),
+                )
                 .unwrap();
             builder
                 .add_transparent_output(

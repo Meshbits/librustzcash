@@ -6,6 +6,12 @@ and this library adheres to Rust's notion of
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+### Changed
+- MSRV is now 1.51.0.
+- Renamed the following in `zcash_proofs::circuit::sprout` to use lower-case
+  abbreviations (matching Rust naming conventions):
+  - `JSInput` to `JsInput`
+  - `JSOutput` to `JsOutput`
 
 ## [0.5.0] - 2021-03-26
 ### Added

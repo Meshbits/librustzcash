@@ -7,7 +7,7 @@ use zcash_primitives::consensus::BlockHeight;
 
 use zcash_client_backend::{data_api::error::Error, proto::compact_formats::CompactBlock};
 
-use crate::{error::SqliteClientError, BlockDB};
+use crate::{error::SqliteClientError, BlockDb};
 
 pub mod init;
 
@@ -23,7 +23,7 @@ struct CompactBlockRow {
 /// value provided is `None`, all blocks are traversed up to the
 /// maximum height.
 pub fn with_blocks<F>(
-    cache: &BlockDB,
+    cache: &BlockDb,
     from_height: BlockHeight,
     limit: Option<u32>,
     mut with_row: F,
@@ -69,9 +69,7 @@ mod tests {
     use tempfile::NamedTempFile;
 
     use zcash_primitives::{
-        block::BlockHash,
-        transaction::components::Amount,
-        zip32::{ExtendedFullViewingKey, ExtendedSpendingKey},
+        block::BlockHash, transaction::components::Amount, zip32::ExtendedSpendingKey,
     };
 
     use zcash_client_backend::data_api::WalletRead;
@@ -84,31 +82,25 @@ mod tests {
         chain::init::init_cache_database,
         error::SqliteClientError,
         tests::{
-            self, fake_compact_block, fake_compact_block_spending, insert_into_cache,
-            sapling_activation_height,
+            self, fake_compact_block, fake_compact_block_spending, init_test_accounts_table,
+            insert_into_cache, sapling_activation_height,
         },
-        wallet::{
-            get_balance,
-            init::{init_accounts_table, init_wallet_db},
-            rewind_to_height,
-        },
-        AccountId, BlockDB, NoteId, WalletDB,
+        wallet::{get_balance, init::init_wallet_db, rewind_to_height},
+        AccountId, BlockDb, NoteId, WalletDb,
     };
 
     #[test]
     fn valid_chain_states() {
         let cache_file = NamedTempFile::new().unwrap();
-        let db_cache = BlockDB::for_path(cache_file.path()).unwrap();
+        let db_cache = BlockDb::for_path(cache_file.path()).unwrap();
         init_cache_database(&db_cache).unwrap();
 
         let data_file = NamedTempFile::new().unwrap();
-        let db_data = WalletDB::for_path(data_file.path(), tests::network()).unwrap();
+        let db_data = WalletDb::for_path(data_file.path(), tests::network()).unwrap();
         init_wallet_db(&db_data).unwrap();
 
         // Add an account to the wallet
-        let extsk = ExtendedSpendingKey::master(&[]);
-        let extfvk = ExtendedFullViewingKey::from(&extsk);
-        init_accounts_table(&db_data, &[extfvk.clone()]).unwrap();
+        let (extfvk, _taddr) = init_test_accounts_table(&db_data);
 
         // Empty chain should be valid
         validate_chain(
@@ -179,17 +171,15 @@ mod tests {
     #[test]
     fn invalid_chain_cache_disconnected() {
         let cache_file = NamedTempFile::new().unwrap();
-        let db_cache = BlockDB::for_path(cache_file.path()).unwrap();
+        let db_cache = BlockDb::for_path(cache_file.path()).unwrap();
         init_cache_database(&db_cache).unwrap();
 
         let data_file = NamedTempFile::new().unwrap();
-        let db_data = WalletDB::for_path(data_file.path(), tests::network()).unwrap();
+        let db_data = WalletDb::for_path(data_file.path(), tests::network()).unwrap();
         init_wallet_db(&db_data).unwrap();
 
         // Add an account to the wallet
-        let extsk = ExtendedSpendingKey::master(&[]);
-        let extfvk = ExtendedFullViewingKey::from(&extsk);
-        init_accounts_table(&db_data, &[extfvk.clone()]).unwrap();
+        let (extfvk, _taddr) = init_test_accounts_table(&db_data);
 
         // Create some fake CompactBlocks
         let (cb, _) = fake_compact_block(
@@ -251,17 +241,15 @@ mod tests {
     #[test]
     fn invalid_chain_cache_reorg() {
         let cache_file = NamedTempFile::new().unwrap();
-        let db_cache = BlockDB::for_path(cache_file.path()).unwrap();
+        let db_cache = BlockDb::for_path(cache_file.path()).unwrap();
         init_cache_database(&db_cache).unwrap();
 
         let data_file = NamedTempFile::new().unwrap();
-        let db_data = WalletDB::for_path(data_file.path(), tests::network()).unwrap();
+        let db_data = WalletDb::for_path(data_file.path(), tests::network()).unwrap();
         init_wallet_db(&db_data).unwrap();
 
         // Add an account to the wallet
-        let extsk = ExtendedSpendingKey::master(&[]);
-        let extfvk = ExtendedFullViewingKey::from(&extsk);
-        init_accounts_table(&db_data, &[extfvk.clone()]).unwrap();
+        let (extfvk, _taddr) = init_test_accounts_table(&db_data);
 
         // Create some fake CompactBlocks
         let (cb, _) = fake_compact_block(
@@ -323,17 +311,15 @@ mod tests {
     #[test]
     fn data_db_rewinding() {
         let cache_file = NamedTempFile::new().unwrap();
-        let db_cache = BlockDB::for_path(cache_file.path()).unwrap();
+        let db_cache = BlockDb::for_path(cache_file.path()).unwrap();
         init_cache_database(&db_cache).unwrap();
 
         let data_file = NamedTempFile::new().unwrap();
-        let db_data = WalletDB::for_path(data_file.path(), tests::network()).unwrap();
+        let db_data = WalletDb::for_path(data_file.path(), tests::network()).unwrap();
         init_wallet_db(&db_data).unwrap();
 
         // Add an account to the wallet
-        let extsk = ExtendedSpendingKey::master(&[]);
-        let extfvk = ExtendedFullViewingKey::from(&extsk);
-        init_accounts_table(&db_data, &[extfvk.clone()]).unwrap();
+        let (extfvk, _taddr) = init_test_accounts_table(&db_data);
 
         // Account balance should be zero
         assert_eq!(get_balance(&db_data, AccountId(0)).unwrap(), Amount::zero());
@@ -382,17 +368,15 @@ mod tests {
     #[test]
     fn scan_cached_blocks_requires_sequential_blocks() {
         let cache_file = NamedTempFile::new().unwrap();
-        let db_cache = BlockDB::for_path(cache_file.path()).unwrap();
+        let db_cache = BlockDb::for_path(cache_file.path()).unwrap();
         init_cache_database(&db_cache).unwrap();
 
         let data_file = NamedTempFile::new().unwrap();
-        let db_data = WalletDB::for_path(data_file.path(), tests::network()).unwrap();
+        let db_data = WalletDb::for_path(data_file.path(), tests::network()).unwrap();
         init_wallet_db(&db_data).unwrap();
 
         // Add an account to the wallet
-        let extsk = ExtendedSpendingKey::master(&[]);
-        let extfvk = ExtendedFullViewingKey::from(&extsk);
-        init_accounts_table(&db_data, &[extfvk.clone()]).unwrap();
+        let (extfvk, _taddr) = init_test_accounts_table(&db_data);
 
         // Create a block with height SAPLING_ACTIVATION_HEIGHT
         let value = Amount::from_u64(50000).unwrap();
@@ -443,17 +427,15 @@ mod tests {
     #[test]
     fn scan_cached_blocks_finds_received_notes() {
         let cache_file = NamedTempFile::new().unwrap();
-        let db_cache = BlockDB::for_path(cache_file.path()).unwrap();
+        let db_cache = BlockDb::for_path(cache_file.path()).unwrap();
         init_cache_database(&db_cache).unwrap();
 
         let data_file = NamedTempFile::new().unwrap();
-        let db_data = WalletDB::for_path(data_file.path(), tests::network()).unwrap();
+        let db_data = WalletDb::for_path(data_file.path(), tests::network()).unwrap();
         init_wallet_db(&db_data).unwrap();
 
         // Add an account to the wallet
-        let extsk = ExtendedSpendingKey::master(&[]);
-        let extfvk = ExtendedFullViewingKey::from(&extsk);
-        init_accounts_table(&db_data, &[extfvk.clone()]).unwrap();
+        let (extfvk, _taddr) = init_test_accounts_table(&db_data);
 
         // Account balance should be zero
         assert_eq!(get_balance(&db_data, AccountId(0)).unwrap(), Amount::zero());
@@ -491,17 +473,15 @@ mod tests {
     #[test]
     fn scan_cached_blocks_finds_change_notes() {
         let cache_file = NamedTempFile::new().unwrap();
-        let db_cache = BlockDB::for_path(cache_file.path()).unwrap();
+        let db_cache = BlockDb::for_path(cache_file.path()).unwrap();
         init_cache_database(&db_cache).unwrap();
 
         let data_file = NamedTempFile::new().unwrap();
-        let db_data = WalletDB::for_path(data_file.path(), tests::network()).unwrap();
+        let db_data = WalletDb::for_path(data_file.path(), tests::network()).unwrap();
         init_wallet_db(&db_data).unwrap();
 
         // Add an account to the wallet
-        let extsk = ExtendedSpendingKey::master(&[]);
-        let extfvk = ExtendedFullViewingKey::from(&extsk);
-        init_accounts_table(&db_data, &[extfvk.clone()]).unwrap();
+        let (extfvk, _taddr) = init_test_accounts_table(&db_data);
 
         // Account balance should be zero
         assert_eq!(get_balance(&db_data, AccountId(0)).unwrap(), Amount::zero());

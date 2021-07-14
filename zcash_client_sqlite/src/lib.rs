@@ -29,6 +29,9 @@
 //! [`CompactBlock`]: zcash_client_backend::proto::compact_formats::CompactBlock
 //! [`init_cache_database`]: crate::chain::init::init_cache_database
 
+// Catch documentation errors caused by code changes.
+#![deny(broken_intra_doc_links)]
+
 use std::collections::HashMap;
 use std::fmt;
 use std::path::Path;
@@ -40,15 +43,15 @@ use zcash_primitives::{
     consensus::{self, BlockHeight},
     memo::Memo,
     merkle_tree::{CommitmentTree, IncrementalWitness},
-    primitives::{Nullifier, PaymentAddress},
-    sapling::Node,
-    transaction::{components::Amount, TxId},
+    sapling::{Node, Nullifier, PaymentAddress},
+    transaction::{components::Amount, Transaction, TxId},
     zip32::ExtendedFullViewingKey,
 };
 
 use zcash_client_backend::{
+    address::RecipientAddress,
     data_api::{
-        BlockSource, PrunedBlock, ReceivedTransaction, SentTransaction, WalletRead, WalletWrite,
+        BlockSource, DecryptedTransaction, PrunedBlock, SentTransaction, WalletRead, WalletWrite,
     },
     encoding::encode_payment_address,
     proto::compact_formats::CompactBlock,
@@ -57,9 +60,16 @@ use zcash_client_backend::{
 
 use crate::error::SqliteClientError;
 
+use {
+    zcash_client_backend::wallet::WalletTransparentOutput,
+    zcash_primitives::legacy::TransparentAddress,
+};
+
 pub mod chain;
 pub mod error;
 pub mod wallet;
+
+pub const PRUNING_HEIGHT: u32 = 100;
 
 /// A newtype wrapper for sqlite primary key values for the notes
 /// table.
@@ -78,18 +88,25 @@ impl fmt::Display for NoteId {
     }
 }
 
+/// A newtype wrapper for sqlite primary key values for the utxos
+/// table.
+#[derive(Debug, Copy, Clone)]
+pub struct UtxoId(pub i64);
+
 /// A wrapper for the SQLite connection to the wallet database.
-pub struct WalletDB<P> {
+pub struct WalletDb<P> {
     conn: Connection,
     params: P,
 }
 
-impl<P: consensus::Parameters> WalletDB<P> {
+impl<P: consensus::Parameters> WalletDb<P> {
     /// Construct a connection to the wallet database stored at the specified path.
     pub fn for_path<F: AsRef<Path>>(path: F, params: P) -> Result<Self, rusqlite::Error> {
-        Connection::open(path).map(move |conn| WalletDB { conn, params })
+        Connection::open(path).map(move |conn| WalletDb { conn, params })
     }
+}
 
+impl<P: consensus::Parameters> WalletDb<P> {
     /// Given a wallet database connection, obtain a handle for the write operations
     /// for that database. This operation may eagerly initialize and cache sqlite
     /// prepared statements that are used in write operations.
@@ -120,8 +137,20 @@ impl<P: consensus::Parameters> WalletDB<P> {
                 stmt_select_tx_ref: self.conn.prepare(
                     "SELECT id_tx FROM transactions WHERE txid = ?",
                 )?,
-                stmt_mark_recived_note_spent: self.conn.prepare(
+                stmt_mark_sapling_note_spent: self.conn.prepare(
                     "UPDATE received_notes SET spent = ? WHERE nf = ?"
+                )?,
+                stmt_mark_transparent_utxo_spent: self.conn.prepare(
+                    "UPDATE utxos SET spent_in_tx = :spent_in_tx
+                    WHERE prevout_txid = :prevout_txid
+                    AND prevout_idx = :prevout_idx"
+                )?,
+                stmt_insert_received_transparent_utxo: self.conn.prepare(
+                    "INSERT INTO utxos (address, prevout_txid, prevout_idx, script, value_zat, height)
+                    VALUES (:address, :prevout_txid, :prevout_idx, :script, :value_zat, :height)"
+                )?,
+                stmt_delete_utxos: self.conn.prepare(
+                    "DELETE FROM utxos WHERE address = :address AND height > :above_height"
                 )?,
                 stmt_insert_received_note: self.conn.prepare(
                     "INSERT INTO received_notes (tx, output_index, account, diversifier, value, rcm, memo, nf, is_change)
@@ -168,31 +197,31 @@ impl<P: consensus::Parameters> WalletDB<P> {
     }
 }
 
-impl<P: consensus::Parameters> WalletRead for WalletDB<P> {
+impl<P: consensus::Parameters> WalletRead for WalletDb<P> {
     type Error = SqliteClientError;
     type NoteRef = NoteId;
     type TxRef = i64;
 
     fn block_height_extrema(&self) -> Result<Option<(BlockHeight, BlockHeight)>, Self::Error> {
-        wallet::block_height_extrema(self).map_err(SqliteClientError::from)
+        wallet::block_height_extrema(&self).map_err(SqliteClientError::from)
     }
 
     fn get_block_hash(&self, block_height: BlockHeight) -> Result<Option<BlockHash>, Self::Error> {
-        wallet::get_block_hash(self, block_height).map_err(SqliteClientError::from)
+        wallet::get_block_hash(&self, block_height).map_err(SqliteClientError::from)
     }
 
     fn get_tx_height(&self, txid: TxId) -> Result<Option<BlockHeight>, Self::Error> {
-        wallet::get_tx_height(self, txid).map_err(SqliteClientError::from)
+        wallet::get_tx_height(&self, txid).map_err(SqliteClientError::from)
     }
 
     fn get_extended_full_viewing_keys(
         &self,
     ) -> Result<HashMap<AccountId, ExtendedFullViewingKey>, Self::Error> {
-        wallet::get_extended_full_viewing_keys(self)
+        wallet::get_extended_full_viewing_keys(&self)
     }
 
     fn get_address(&self, account: AccountId) -> Result<Option<PaymentAddress>, Self::Error> {
-        wallet::get_address(self, account)
+        wallet::get_address(&self, account)
     }
 
     fn is_valid_account_extfvk(
@@ -200,7 +229,7 @@ impl<P: consensus::Parameters> WalletRead for WalletDB<P> {
         account: AccountId,
         extfvk: &ExtendedFullViewingKey,
     ) -> Result<bool, Self::Error> {
-        wallet::is_valid_account_extfvk(self, account, extfvk)
+        wallet::is_valid_account_extfvk(&self, account, extfvk)
     }
 
     fn get_balance_at(
@@ -208,7 +237,11 @@ impl<P: consensus::Parameters> WalletRead for WalletDB<P> {
         account: AccountId,
         anchor_height: BlockHeight,
     ) -> Result<Amount, Self::Error> {
-        wallet::get_balance_at(self, account, anchor_height)
+        wallet::get_balance_at(&self, account, anchor_height)
+    }
+
+    fn get_transaction(&self, id_tx: i64) -> Result<Transaction, Self::Error> {
+        wallet::get_transaction(&self, id_tx)
     }
 
     fn get_memo(&self, id_note: Self::NoteRef) -> Result<Memo, Self::Error> {
@@ -222,7 +255,7 @@ impl<P: consensus::Parameters> WalletRead for WalletDB<P> {
         &self,
         block_height: BlockHeight,
     ) -> Result<Option<CommitmentTree<Node>>, Self::Error> {
-        wallet::get_commitment_tree(self, block_height)
+        wallet::get_commitment_tree(&self, block_height)
     }
 
     #[allow(clippy::type_complexity)]
@@ -230,28 +263,40 @@ impl<P: consensus::Parameters> WalletRead for WalletDB<P> {
         &self,
         block_height: BlockHeight,
     ) -> Result<Vec<(Self::NoteRef, IncrementalWitness<Node>)>, Self::Error> {
-        wallet::get_witnesses(self, block_height)
+        wallet::get_witnesses(&self, block_height)
     }
 
     fn get_nullifiers(&self) -> Result<Vec<(AccountId, Nullifier)>, Self::Error> {
-        wallet::get_nullifiers(self)
+        wallet::get_nullifiers(&self)
     }
 
-    fn get_spendable_notes(
+    fn get_all_nullifiers(&self) -> Result<Vec<(AccountId, Nullifier)>, Self::Error> {
+        wallet::get_all_nullifiers(&self)
+    }
+
+    fn get_unspent_sapling_notes(
         &self,
         account: AccountId,
         anchor_height: BlockHeight,
     ) -> Result<Vec<SpendableNote>, Self::Error> {
-        wallet::transact::get_spendable_notes(self, account, anchor_height)
+        wallet::transact::get_unspent_sapling_notes(&self, account, anchor_height)
     }
 
-    fn select_spendable_notes(
+    fn select_unspent_sapling_notes(
         &self,
         account: AccountId,
         target_value: Amount,
         anchor_height: BlockHeight,
     ) -> Result<Vec<SpendableNote>, Self::Error> {
-        wallet::transact::select_spendable_notes(self, account, target_value, anchor_height)
+        wallet::transact::select_unspent_sapling_notes(&self, account, target_value, anchor_height)
+    }
+
+    fn get_unspent_transparent_utxos(
+        &self,
+        address: &TransparentAddress,
+        anchor_height: BlockHeight,
+    ) -> Result<Vec<WalletTransparentOutput>, Self::Error> {
+        wallet::get_unspent_transparent_utxos(&self, address, anchor_height)
     }
 }
 
@@ -263,7 +308,7 @@ impl<P: consensus::Parameters> WalletRead for WalletDB<P> {
 ///
 /// [`WalletWrite`]: zcash_client_backend::data_api::WalletWrite
 pub struct DataConnStmtCache<'a, P> {
-    wallet_db: &'a WalletDB<P>,
+    wallet_db: &'a WalletDb<P>,
     stmt_insert_block: Statement<'a>,
 
     stmt_insert_tx_meta: Statement<'a>,
@@ -273,8 +318,11 @@ pub struct DataConnStmtCache<'a, P> {
     stmt_update_tx_data: Statement<'a>,
     stmt_select_tx_ref: Statement<'a>,
 
-    stmt_mark_recived_note_spent: Statement<'a>,
+    stmt_mark_sapling_note_spent: Statement<'a>,
+    stmt_mark_transparent_utxo_spent: Statement<'a>,
 
+    stmt_insert_received_transparent_utxo: Statement<'a>,
+    stmt_delete_utxos: Statement<'a>,
     stmt_insert_received_note: Statement<'a>,
     stmt_update_received_note: Statement<'a>,
     stmt_select_received_note: Statement<'a>,
@@ -330,6 +378,10 @@ impl<'a, P: consensus::Parameters> WalletRead for DataConnStmtCache<'a, P> {
         self.wallet_db.get_balance_at(account, anchor_height)
     }
 
+    fn get_transaction(&self, id_tx: i64) -> Result<Transaction, Self::Error> {
+        self.wallet_db.get_transaction(id_tx)
+    }
+
     fn get_memo(&self, id_note: Self::NoteRef) -> Result<Memo, Self::Error> {
         self.wallet_db.get_memo(id_note)
     }
@@ -353,22 +405,36 @@ impl<'a, P: consensus::Parameters> WalletRead for DataConnStmtCache<'a, P> {
         self.wallet_db.get_nullifiers()
     }
 
-    fn get_spendable_notes(
+    fn get_all_nullifiers(&self) -> Result<Vec<(AccountId, Nullifier)>, Self::Error> {
+        self.wallet_db.get_all_nullifiers()
+    }
+
+    fn get_unspent_sapling_notes(
         &self,
         account: AccountId,
         anchor_height: BlockHeight,
     ) -> Result<Vec<SpendableNote>, Self::Error> {
-        self.wallet_db.get_spendable_notes(account, anchor_height)
+        self.wallet_db
+            .get_unspent_sapling_notes(account, anchor_height)
     }
 
-    fn select_spendable_notes(
+    fn select_unspent_sapling_notes(
         &self,
         account: AccountId,
         target_value: Amount,
         anchor_height: BlockHeight,
     ) -> Result<Vec<SpendableNote>, Self::Error> {
         self.wallet_db
-            .select_spendable_notes(account, target_value, anchor_height)
+            .select_unspent_sapling_notes(account, target_value, anchor_height)
+    }
+
+    fn get_unspent_transparent_utxos(
+        &self,
+        address: &TransparentAddress,
+        anchor_height: BlockHeight,
+    ) -> Result<Vec<WalletTransparentOutput>, Self::Error> {
+        self.wallet_db
+            .get_unspent_transparent_utxos(address, anchor_height)
     }
 }
 
@@ -424,8 +490,11 @@ impl<'a, P: consensus::Parameters> WalletWrite for DataConnStmtCache<'a, P> {
 
                 // Mark notes as spent and remove them from the scanning cache
                 for spend in &tx.shielded_spends {
-                    wallet::mark_spent(up, tx_row, &spend.nf)?;
+                    wallet::mark_sapling_note_spent(up, tx_row, &spend.nf)?;
                 }
+
+                //TODO
+                //wallet::mark_transparent_utxo_spent(up, tx_ref, &utxo.outpoint)?;
 
                 for output in &tx.shielded_outputs {
                     let received_note_id = wallet::put_received_note(up, output, tx_row)?;
@@ -446,7 +515,7 @@ impl<'a, P: consensus::Parameters> WalletWrite for DataConnStmtCache<'a, P> {
             }
 
             // Prune the stored witnesses (we only expect rollbacks of at most 100 blocks).
-            wallet::prune_witnesses(up, block.block_height - 100)?;
+            wallet::prune_witnesses(up, block.block_height - PRUNING_HEIGHT)?;
 
             // Update now-expired transactions that didn't get mined.
             wallet::update_expired_notes(up, block.block_height)?;
@@ -455,21 +524,66 @@ impl<'a, P: consensus::Parameters> WalletWrite for DataConnStmtCache<'a, P> {
         })
     }
 
-    fn store_received_tx(
+    fn store_decrypted_tx(
         &mut self,
-        received_tx: &ReceivedTransaction,
+        d_tx: &DecryptedTransaction,
+        nullifiers: &[(AccountId, Nullifier)],
     ) -> Result<Self::TxRef, Self::Error> {
         self.transactionally(|up| {
-            let tx_ref = wallet::put_tx_data(up, received_tx.tx, None)?;
+            let tx_ref = wallet::put_tx_data(up, d_tx.tx, None)?;
 
-            for output in received_tx.outputs {
+            let mut spending_account_id: Option<AccountId> = None;
+            for output in d_tx.sapling_outputs {
                 if output.outgoing {
-                    wallet::put_sent_note(up, output, tx_ref)?;
+                    wallet::put_sent_note(
+                        up,
+                        tx_ref,
+                        output.index,
+                        output.account,
+                        &output.to,
+                        Amount::from_u64(output.note.value)
+                            .map_err(|_| SqliteClientError::CorruptedData("Note value invalid.".to_string()))?,
+                        Some(&output.memo),
+                    )?;
                 } else {
+                    match spending_account_id {
+                        Some(id) =>
+                            if id != output.account {
+                                panic!("Unable to determine a unique account identifier for z->t spend.");
+                            }
+                        None => {
+                            spending_account_id = Some(output.account);
+                        }
+                    }
+
                     wallet::put_received_note(up, output, tx_ref)?;
                 }
             }
 
+            // if we have some transparent outputs yet no shielded outputs, then this is t2t and we
+            // can safely ignore it otherwise, this is z2t and it might have originated from our
+            // wallet
+            if !d_tx.tx.vout.is_empty() {
+                // store received z->t transactions in the same way they would be stored by
+                // create_spend_to_address If there are any of our shielded inputs, we interpret this
+                // as our z->t tx and store the vouts as our sent notes.
+                // FIXME this is a weird heuristic that is bound to trip us up somewhere.
+
+                if let Some((account_id, _)) = nullifiers.iter().find(|(_, nf)|
+                    d_tx.tx.shielded_spends.iter().any(|input| *nf == input.nullifier)
+                ) {
+                    for (output_index, txout) in d_tx.tx.vout.iter().enumerate() {
+                        wallet::put_sent_utxo(
+                            up,
+                            tx_ref,
+                            output_index,
+                            *account_id,
+                            &txout.script_pubkey.address().unwrap(),
+                            txout.value,
+                        )?;
+                    }
+                }
+            }
             Ok(tx_ref)
         })
     }
@@ -488,18 +602,34 @@ impl<'a, P: consensus::Parameters> WalletWrite for DataConnStmtCache<'a, P> {
             // Assumes that create_spend_to_address() will never be called in parallel, which is a
             // reasonable assumption for a light client such as a mobile phone.
             for spend in &sent_tx.tx.shielded_spends {
-                wallet::mark_spent(up, tx_ref, &spend.nullifier)?;
+                wallet::mark_sapling_note_spent(up, tx_ref, &spend.nullifier)?;
             }
 
-            wallet::insert_sent_note(
-                up,
-                tx_ref,
-                sent_tx.output_index,
-                sent_tx.account,
-                sent_tx.recipient_address,
-                sent_tx.value,
-                sent_tx.memo.as_ref(),
-            )?;
+            for utxo_outpoint in &sent_tx.utxos_spent {
+                wallet::mark_transparent_utxo_spent(up, tx_ref, &utxo_outpoint)?;
+            }
+
+            for output in &sent_tx.outputs {
+                match output.recipient_address {
+                    RecipientAddress::Shielded(addr) => wallet::insert_sent_note(
+                        up,
+                        tx_ref,
+                        output.output_index,
+                        sent_tx.account,
+                        &addr,
+                        output.value,
+                        output.memo.as_ref(),
+                    )?,
+                    RecipientAddress::Transparent(addr) => wallet::insert_sent_utxo(
+                        up,
+                        tx_ref,
+                        output.output_index,
+                        sent_tx.account,
+                        &addr,
+                        output.value,
+                    )?,
+                }
+            }
 
             // Return the row number of the transaction, so the caller can fetch it for sending.
             Ok(tx_ref)
@@ -512,16 +642,16 @@ impl<'a, P: consensus::Parameters> WalletWrite for DataConnStmtCache<'a, P> {
 }
 
 /// A wrapper for the SQLite connection to the block cache database.
-pub struct BlockDB(Connection);
+pub struct BlockDb(Connection);
 
-impl BlockDB {
+impl BlockDb {
     /// Opens a connection to the wallet database stored at the specified path.
     pub fn for_path<P: AsRef<Path>>(path: P) -> Result<Self, rusqlite::Error> {
-        Connection::open(path).map(BlockDB)
+        Connection::open(path).map(BlockDb)
     }
 }
 
-impl BlockSource for BlockDB {
+impl BlockSource for BlockDb {
     type Error = SqliteClientError;
 
     fn with_blocks<F>(
@@ -552,23 +682,31 @@ mod tests {
     use protobuf::Message;
     use rand_core::{OsRng, RngCore};
     use rusqlite::params;
+    use secp256k1::key::SecretKey;
 
-    use zcash_client_backend::proto::compact_formats::{
-        CompactBlock, CompactOutput, CompactSpend, CompactTx,
+    use zcash_client_backend::{
+        keys::{
+            derive_secret_key_from_seed, derive_transparent_address_from_secret_key, spending_key,
+        },
+        proto::compact_formats::{CompactBlock, CompactOutput, CompactSpend, CompactTx},
     };
 
     use zcash_primitives::{
         block::BlockHash,
         consensus::{BlockHeight, Network, NetworkUpgrade, Parameters},
+        legacy::TransparentAddress,
         memo::MemoBytes,
-        note_encryption::SaplingNoteEncryption,
-        primitives::{Note, Nullifier, PaymentAddress},
+        sapling::{
+            note_encryption::sapling_note_encryption, util::generate_random_rseed, Note, Nullifier,
+            PaymentAddress,
+        },
         transaction::components::Amount,
-        util::generate_random_rseed,
-        zip32::ExtendedFullViewingKey,
+        zip32::{ExtendedFullViewingKey, ExtendedSpendingKey},
     };
 
-    use super::BlockDB;
+    use crate::{wallet::init::init_accounts_table, AccountId, WalletDb};
+
+    use super::BlockDb;
 
     #[cfg(feature = "mainnet")]
     pub(crate) fn network() -> Network {
@@ -592,6 +730,25 @@ mod tests {
         Network::TestNetwork
             .activation_height(NetworkUpgrade::Sapling)
             .unwrap()
+    }
+
+    pub(crate) fn derive_test_keys_from_seed(
+        seed: &[u8],
+        account: AccountId,
+    ) -> (ExtendedSpendingKey, SecretKey) {
+        let extsk = spending_key(seed, network().coin_type(), account);
+        let tsk = derive_secret_key_from_seed(&network(), seed, account, 0).unwrap();
+        (extsk, tsk)
+    }
+
+    pub(crate) fn init_test_accounts_table(
+        db_data: &WalletDb<Network>,
+    ) -> (ExtendedFullViewingKey, TransparentAddress) {
+        let (extsk, tsk) = derive_test_keys_from_seed(&[0u8; 32], AccountId(0));
+        let extfvk = ExtendedFullViewingKey::from(&extsk);
+        let taddr = derive_transparent_address_from_secret_key(&tsk);
+        init_accounts_table(db_data, &[extfvk.clone()], &[taddr.clone()]).unwrap();
+        (extfvk, taddr)
     }
 
     /// Create a fake CompactBlock at the given height, containing a single output paying
@@ -613,7 +770,7 @@ mod tests {
             value: value.into(),
             rseed,
         };
-        let encryptor = SaplingNoteEncryption::new(
+        let encryptor = sapling_note_encryption::<_, Network>(
             Some(extfvk.fvk.ovk),
             note.clone(),
             to,
@@ -628,7 +785,7 @@ mod tests {
         let mut cout = CompactOutput::new();
         cout.set_cmu(cmu);
         cout.set_epk(epk);
-        cout.set_ciphertext(enc_ciphertext[..52].to_vec());
+        cout.set_ciphertext(enc_ciphertext.as_ref()[..52].to_vec());
         let mut ctx = CompactTx::new();
         let mut txid = vec![0; 32];
         rng.fill_bytes(&mut txid);
@@ -673,7 +830,7 @@ mod tests {
                 value: value.into(),
                 rseed,
             };
-            let encryptor = SaplingNoteEncryption::new(
+            let encryptor = sapling_note_encryption::<_, Network>(
                 Some(extfvk.fvk.ovk),
                 note.clone(),
                 to,
@@ -687,7 +844,7 @@ mod tests {
             let mut cout = CompactOutput::new();
             cout.set_cmu(cmu);
             cout.set_epk(epk);
-            cout.set_ciphertext(enc_ciphertext[..52].to_vec());
+            cout.set_ciphertext(enc_ciphertext.as_ref()[..52].to_vec());
             cout
         });
 
@@ -701,7 +858,7 @@ mod tests {
                 value: (in_value - value).into(),
                 rseed,
             };
-            let encryptor = SaplingNoteEncryption::new(
+            let encryptor = sapling_note_encryption::<_, Network>(
                 Some(extfvk.fvk.ovk),
                 note.clone(),
                 change_addr,
@@ -715,7 +872,7 @@ mod tests {
             let mut cout = CompactOutput::new();
             cout.set_cmu(cmu);
             cout.set_epk(epk);
-            cout.set_ciphertext(enc_ciphertext[..52].to_vec());
+            cout.set_ciphertext(enc_ciphertext.as_ref()[..52].to_vec());
             cout
         });
 
@@ -729,7 +886,7 @@ mod tests {
     }
 
     /// Insert a fake CompactBlock into the cache DB.
-    pub(crate) fn insert_into_cache(db_cache: &BlockDB, cb: &CompactBlock) {
+    pub(crate) fn insert_into_cache(db_cache: &BlockDb, cb: &CompactBlock) {
         let cb_bytes = cb.write_to_bytes().unwrap();
         db_cache
             .0

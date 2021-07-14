@@ -5,23 +5,21 @@ use std::fmt;
 use std::io::{self, Read, Write};
 use std::ops::Deref;
 
-use crate::{
-    consensus::BlockHeight,
-    redjubjub::Signature,
-    serialize::Vector,
-    util::sha256d::{HashReader, HashWriter},
-};
+use crate::{consensus::BlockHeight, sapling::redjubjub::Signature, serialize::Vector};
+
+use self::util::sha256d::{HashReader, HashWriter};
 
 pub mod builder;
 pub mod components;
 mod sighash;
+pub mod util;
 
 #[cfg(test)]
 mod tests;
 
 pub use self::sighash::{signature_hash, signature_hash_data, SignableInput, SIGHASH_ALL};
 
-use self::components::{Amount, JSDescription, OutputDescription, SpendDescription, TxIn, TxOut};
+use self::components::{Amount, JsDescription, OutputDescription, SpendDescription, TxIn, TxOut};
 
 #[cfg(feature = "zfuture")]
 use self::components::{TzeIn, TzeOut};
@@ -185,7 +183,7 @@ pub struct TransactionData {
     pub value_balance: Amount,
     pub shielded_spends: Vec<SpendDescription>,
     pub shielded_outputs: Vec<OutputDescription>,
-    pub joinsplits: Vec<JSDescription>,
+    pub joinsplits: Vec<JsDescription>,
     pub joinsplit_pubkey: Option<[u8; 32]>,
     pub joinsplit_sig: Option<[u8; 64]>,
     pub binding_sig: Option<Signature>,
@@ -351,7 +349,7 @@ impl Transaction {
 
         let (joinsplits, joinsplit_pubkey, joinsplit_sig) = if version.has_sprout() {
             let jss = Vector::read(&mut reader, |r| {
-                JSDescription::read(r, version.uses_groth_proofs())
+                JsDescription::read(r, version.uses_groth_proofs())
             })?;
             let (pubkey, sig) = if !jss.is_empty() {
                 let mut joinsplit_pubkey = [0; 32];
@@ -508,7 +506,7 @@ pub mod testing {
     };
 
     #[cfg(feature = "zfuture")]
-    use super::components::{TzeIn, TzeOut};
+    use super::components::{TzeIn, TzeOut, TzeOutPoint};
 
     pub const VALID_OPCODES: [u8; 8] = [
         0x00, // OP_FALSE,
@@ -553,6 +551,13 @@ pub mod testing {
 
     #[cfg(feature = "zfuture")]
     prop_compose! {
+        pub fn arb_tzeoutpoint()(hash in prop::array::uniform32(1u8..), n in 1..100u32) -> TzeOutPoint {
+            TzeOutPoint::new(hash, n)
+        }
+    }
+
+    #[cfg(feature = "zfuture")]
+    prop_compose! {
         pub fn arb_witness()(extension_id in 0..100u32, mode in 0..100u32, payload in vec(any::<u8>(), 32..256))  -> tze::Witness {
             tze::Witness { extension_id, mode, payload }
         }
@@ -560,7 +565,7 @@ pub mod testing {
 
     #[cfg(feature = "zfuture")]
     prop_compose! {
-        pub fn arb_tzein()(prevout in arb_outpoint(), witness in arb_witness()) -> TzeIn {
+        pub fn arb_tzein()(prevout in arb_tzeoutpoint(), witness in arb_witness()) -> TzeIn {
             TzeIn { prevout, witness }
         }
     }

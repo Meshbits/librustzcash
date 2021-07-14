@@ -8,13 +8,13 @@ use ff::PrimeField;
 use zcash_primitives::{
     consensus::BlockHeight,
     merkle_tree::IncrementalWitness,
-    primitives::{Diversifier, Rseed},
+    sapling::{Diversifier, Rseed},
     transaction::components::Amount,
 };
 
 use zcash_client_backend::wallet::{AccountId, SpendableNote};
 
-use crate::{error::SqliteClientError, WalletDB};
+use crate::{error::SqliteClientError, WalletDb};
 
 fn to_spendable_note(row: &Row) -> Result<SpendableNote, SqliteClientError> {
     let diversifier = {
@@ -59,8 +59,8 @@ fn to_spendable_note(row: &Row) -> Result<SpendableNote, SqliteClientError> {
     })
 }
 
-pub fn get_spendable_notes<P>(
-    wdb: &WalletDB<P>,
+pub fn get_unspent_sapling_notes<P>(
+    wdb: &WalletDb<P>,
     account: AccountId,
     anchor_height: BlockHeight,
 ) -> Result<Vec<SpendableNote>, SqliteClientError> {
@@ -87,8 +87,8 @@ pub fn get_spendable_notes<P>(
     notes.collect::<Result<_, _>>()
 }
 
-pub fn select_spendable_notes<P>(
-    wdb: &WalletDB<P>,
+pub fn select_unspent_sapling_notes<P>(
+    wdb: &WalletDb<P>,
     account: AccountId,
     target_value: Amount,
     anchor_height: BlockHeight,
@@ -155,8 +155,7 @@ mod tests {
         block::BlockHash,
         consensus::BlockHeight,
         legacy::TransparentAddress,
-        note_encryption::try_sapling_output_recovery,
-        prover::TxProver,
+        sapling::{note_encryption::try_sapling_output_recovery, prover::TxProver},
         transaction::{components::Amount, Transaction},
         zip32::{ExtendedFullViewingKey, ExtendedSpendingKey},
     };
@@ -165,17 +164,21 @@ mod tests {
 
     use zcash_client_backend::{
         data_api::{chain::scan_cached_blocks, wallet::create_spend_to_address, WalletRead},
+        keys::derive_transparent_address_from_secret_key,
         wallet::OvkPolicy,
     };
 
     use crate::{
         chain::init::init_cache_database,
-        tests::{self, fake_compact_block, insert_into_cache, sapling_activation_height},
+        tests::{
+            self, derive_test_keys_from_seed, fake_compact_block, insert_into_cache,
+            sapling_activation_height,
+        },
         wallet::{
             get_balance, get_balance_at,
             init::{init_accounts_table, init_blocks_table, init_wallet_db},
         },
-        AccountId, BlockDB, DataConnStmtCache, WalletDB,
+        AccountId, BlockDb, DataConnStmtCache, WalletDb,
     };
 
     fn test_prover() -> impl TxProver {
@@ -190,17 +193,21 @@ mod tests {
     #[test]
     fn create_to_address_fails_on_incorrect_extsk() {
         let data_file = NamedTempFile::new().unwrap();
-        let db_data = WalletDB::for_path(data_file.path(), tests::network()).unwrap();
+        let db_data = WalletDb::for_path(data_file.path(), tests::network()).unwrap();
         init_wallet_db(&db_data).unwrap();
 
         // Add two accounts to the wallet
-        let extsk0 = ExtendedSpendingKey::master(&[]);
-        let extsk1 = ExtendedSpendingKey::master(&[0]);
+        let (extsk0, tsk0) = derive_test_keys_from_seed(&[0u8; 32], AccountId(0));
+        let (extsk1, tsk1) = derive_test_keys_from_seed(&[1u8; 32], AccountId(1));
         let extfvks = [
             ExtendedFullViewingKey::from(&extsk0),
             ExtendedFullViewingKey::from(&extsk1),
         ];
-        init_accounts_table(&db_data, &extfvks).unwrap();
+        let taddrs = [
+            derive_transparent_address_from_secret_key(&tsk0),
+            derive_transparent_address_from_secret_key(&tsk1),
+        ];
+        init_accounts_table(&db_data, &extfvks, &taddrs).unwrap();
         let to = extsk0.default_address().unwrap().1.into();
 
         // Invalid extsk for the given account should cause an error
@@ -239,13 +246,14 @@ mod tests {
     #[test]
     fn create_to_address_fails_with_no_blocks() {
         let data_file = NamedTempFile::new().unwrap();
-        let db_data = WalletDB::for_path(data_file.path(), tests::network()).unwrap();
+        let db_data = WalletDb::for_path(data_file.path(), tests::network()).unwrap();
         init_wallet_db(&db_data).unwrap();
 
         // Add an account to the wallet
-        let extsk = ExtendedSpendingKey::master(&[]);
-        let extfvks = [ExtendedFullViewingKey::from(&extsk)];
-        init_accounts_table(&db_data, &extfvks).unwrap();
+        let (extsk, tsk) = derive_test_keys_from_seed(&[0u8; 32], AccountId(0));
+        let extfvk = ExtendedFullViewingKey::from(&extsk);
+        let taddr = derive_transparent_address_from_secret_key(&tsk);
+        init_accounts_table(&db_data, &[extfvk], &[taddr]).unwrap();
         let to = extsk.default_address().unwrap().1.into();
 
         // We cannot do anything if we aren't synchronised
@@ -269,7 +277,7 @@ mod tests {
     #[test]
     fn create_to_address_fails_on_insufficient_balance() {
         let data_file = NamedTempFile::new().unwrap();
-        let db_data = WalletDB::for_path(data_file.path(), tests::network()).unwrap();
+        let db_data = WalletDb::for_path(data_file.path(), tests::network()).unwrap();
         init_wallet_db(&db_data).unwrap();
         init_blocks_table(
             &db_data,
@@ -281,9 +289,10 @@ mod tests {
         .unwrap();
 
         // Add an account to the wallet
-        let extsk = ExtendedSpendingKey::master(&[]);
-        let extfvks = [ExtendedFullViewingKey::from(&extsk)];
-        init_accounts_table(&db_data, &extfvks).unwrap();
+        let (extsk, tsk) = derive_test_keys_from_seed(&[0u8; 32], AccountId(0));
+        let extfvk = ExtendedFullViewingKey::from(&extsk);
+        let taddr = derive_transparent_address_from_secret_key(&tsk);
+        init_accounts_table(&db_data, &[extfvk], &[taddr]).unwrap();
         let to = extsk.default_address().unwrap().1.into();
 
         // Account balance should be zero
@@ -313,17 +322,18 @@ mod tests {
     #[test]
     fn create_to_address_fails_on_unverified_notes() {
         let cache_file = NamedTempFile::new().unwrap();
-        let db_cache = BlockDB(Connection::open(cache_file.path()).unwrap());
+        let db_cache = BlockDb(Connection::open(cache_file.path()).unwrap());
         init_cache_database(&db_cache).unwrap();
 
         let data_file = NamedTempFile::new().unwrap();
-        let db_data = WalletDB::for_path(data_file.path(), tests::network()).unwrap();
+        let db_data = WalletDb::for_path(data_file.path(), tests::network()).unwrap();
         init_wallet_db(&db_data).unwrap();
 
         // Add an account to the wallet
-        let extsk = ExtendedSpendingKey::master(&[]);
+        let (extsk, tsk) = derive_test_keys_from_seed(&[0u8; 32], AccountId(0));
         let extfvk = ExtendedFullViewingKey::from(&extsk);
-        init_accounts_table(&db_data, &[extfvk.clone()]).unwrap();
+        let taddr = derive_transparent_address_from_secret_key(&tsk);
+        init_accounts_table(&db_data, &[extfvk.clone()], &[taddr]).unwrap();
 
         // Add funds to the wallet in a single note
         let value = Amount::from_u64(50000).unwrap();
@@ -440,17 +450,18 @@ mod tests {
     #[test]
     fn create_to_address_fails_on_locked_notes() {
         let cache_file = NamedTempFile::new().unwrap();
-        let db_cache = BlockDB(Connection::open(cache_file.path()).unwrap());
+        let db_cache = BlockDb(Connection::open(cache_file.path()).unwrap());
         init_cache_database(&db_cache).unwrap();
 
         let data_file = NamedTempFile::new().unwrap();
-        let db_data = WalletDB::for_path(data_file.path(), tests::network()).unwrap();
+        let db_data = WalletDb::for_path(data_file.path(), tests::network()).unwrap();
         init_wallet_db(&db_data).unwrap();
 
         // Add an account to the wallet
-        let extsk = ExtendedSpendingKey::master(&[]);
+        let (extsk, tsk) = derive_test_keys_from_seed(&[0u8; 32], AccountId(0));
         let extfvk = ExtendedFullViewingKey::from(&extsk);
-        init_accounts_table(&db_data, &[extfvk.clone()]).unwrap();
+        let taddr = derive_transparent_address_from_secret_key(&tsk);
+        init_accounts_table(&db_data, &[extfvk.clone()], &[taddr]).unwrap();
 
         // Add funds to the wallet in a single note
         let value = Amount::from_u64(50000).unwrap();
@@ -561,17 +572,18 @@ mod tests {
     fn ovk_policy_prevents_recovery_from_chain() {
         let network = tests::network();
         let cache_file = NamedTempFile::new().unwrap();
-        let db_cache = BlockDB(Connection::open(cache_file.path()).unwrap());
+        let db_cache = BlockDb(Connection::open(cache_file.path()).unwrap());
         init_cache_database(&db_cache).unwrap();
 
         let data_file = NamedTempFile::new().unwrap();
-        let db_data = WalletDB::for_path(data_file.path(), network).unwrap();
+        let db_data = WalletDb::for_path(data_file.path(), network).unwrap();
         init_wallet_db(&db_data).unwrap();
 
         // Add an account to the wallet
-        let extsk = ExtendedSpendingKey::master(&[]);
+        let (extsk, tsk) = derive_test_keys_from_seed(&[0u8; 32], AccountId(0));
         let extfvk = ExtendedFullViewingKey::from(&extsk);
-        init_accounts_table(&db_data, &[extfvk.clone()]).unwrap();
+        let taddr = derive_transparent_address_from_secret_key(&tsk);
+        init_accounts_table(&db_data, &[extfvk.clone()], &[taddr]).unwrap();
 
         // Add funds to the wallet in a single note
         let value = Amount::from_u64(50000).unwrap();
@@ -635,11 +647,7 @@ mod tests {
                 &network,
                 sapling_activation_height(),
                 &extfvk.fvk.ovk,
-                &output.cv,
-                &output.cmu,
-                &output.ephemeral_key,
-                &output.enc_ciphertext,
-                &output.out_ciphertext,
+                output,
             )
         };
 
@@ -670,17 +678,18 @@ mod tests {
     #[test]
     fn create_to_address_succeeds_to_t_addr_zero_change() {
         let cache_file = NamedTempFile::new().unwrap();
-        let db_cache = BlockDB(Connection::open(cache_file.path()).unwrap());
+        let db_cache = BlockDb(Connection::open(cache_file.path()).unwrap());
         init_cache_database(&db_cache).unwrap();
 
         let data_file = NamedTempFile::new().unwrap();
-        let db_data = WalletDB::for_path(data_file.path(), tests::network()).unwrap();
+        let db_data = WalletDb::for_path(data_file.path(), tests::network()).unwrap();
         init_wallet_db(&db_data).unwrap();
 
         // Add an account to the wallet
-        let extsk = ExtendedSpendingKey::master(&[]);
+        let (extsk, tsk) = derive_test_keys_from_seed(&[0u8; 32], AccountId(0));
         let extfvk = ExtendedFullViewingKey::from(&extsk);
-        init_accounts_table(&db_data, &[extfvk.clone()]).unwrap();
+        let taddr = derive_transparent_address_from_secret_key(&tsk);
+        init_accounts_table(&db_data, &[extfvk.clone()], &[taddr]).unwrap();
 
         // Add funds to the wallet in a single note
         let value = Amount::from_u64(51000).unwrap();

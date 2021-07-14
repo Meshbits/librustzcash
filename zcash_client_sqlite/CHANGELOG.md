@@ -6,6 +6,14 @@ and this library adheres to Rust's notion of
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+### Changed
+- MSRV is now 1.51.0.
+- Renamed the following to use lower-case abbreviations (matching Rust
+  naming conventions):
+  - `zcash_client_sqlite::BlockDB` to `BlockDb`
+  - `zcash_client_sqlite::WalletDB` to `WalletDb`
+  - `zcash_client_sqlite::error::SqliteClientError::IncorrectHRPExtFVK` to
+    `IncorrectHrpExtFvk`.
 
 ## [0.3.0] - 2021-03-26
 This release contains a major refactor of the APIs to leverage the new Data

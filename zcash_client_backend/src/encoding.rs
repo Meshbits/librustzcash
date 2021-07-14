@@ -8,10 +8,12 @@
 use bech32::{self, Error, FromBase32, ToBase32, Variant};
 use bs58::{self, decode::Error as Bs58Error};
 use std::convert::TryInto;
+use std::fmt;
 use std::io::{self, Write};
 use zcash_primitives::{
+    consensus,
     legacy::TransparentAddress,
-    primitives::PaymentAddress,
+    sapling::PaymentAddress,
     zip32::{ExtendedFullViewingKey, ExtendedSpendingKey},
 };
 
@@ -36,6 +38,61 @@ where
     }
 }
 
+pub trait AddressCodec<P>
+where
+    Self: std::marker::Sized,
+{
+    type Error;
+
+    fn encode(&self, params: &P) -> String;
+    fn decode(params: &P, address: &str) -> Result<Self, Self::Error>;
+}
+
+#[derive(Debug)]
+pub enum TransparentCodecError {
+    UnsupportedAddressType(String),
+    Base58(Bs58Error),
+}
+
+impl fmt::Display for TransparentCodecError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match &self {
+            TransparentCodecError::UnsupportedAddressType(s) => write!(
+                f,
+                "Could not recognize {} as a supported p2sh or p2pkh address.",
+                s
+            ),
+            TransparentCodecError::Base58(e) => write!(f, "{}", e),
+        }
+    }
+}
+
+impl std::error::Error for TransparentCodecError {}
+
+impl<P: consensus::Parameters> AddressCodec<P> for TransparentAddress {
+    type Error = TransparentCodecError;
+
+    fn encode(&self, params: &P) -> String {
+        encode_transparent_address(
+            &params.b58_pubkey_address_prefix(),
+            &params.b58_script_address_prefix(),
+            self,
+        )
+    }
+
+    fn decode(params: &P, address: &str) -> Result<TransparentAddress, TransparentCodecError> {
+        decode_transparent_address(
+            &params.b58_pubkey_address_prefix(),
+            &params.b58_script_address_prefix(),
+            address,
+        )
+        .map_err(TransparentCodecError::Base58)
+        .and_then(|opt| {
+            opt.ok_or_else(|| TransparentCodecError::UnsupportedAddressType(address.to_string()))
+        })
+    }
+}
+
 /// Writes an [`ExtendedSpendingKey`] as a Bech32-encoded string.
 ///
 /// # Examples
@@ -47,9 +104,10 @@ where
 /// use zcash_client_backend::{
 ///     encoding::encode_extended_spending_key,
 ///     keys::spending_key,
+///     wallet::AccountId,
 /// };
 ///
-/// let extsk = spending_key(&[0; 32][..], COIN_TYPE, 0);
+/// let extsk = spending_key(&[0; 32][..], COIN_TYPE, AccountId(0));
 /// let encoded = encode_extended_spending_key(HRP_SAPLING_EXTENDED_SPENDING_KEY, &extsk);
 /// ```
 /// [`ExtendedSpendingKey`]: zcash_primitives::zip32::ExtendedSpendingKey
@@ -78,10 +136,11 @@ pub fn decode_extended_spending_key(
 /// use zcash_client_backend::{
 ///     encoding::encode_extended_full_viewing_key,
 ///     keys::spending_key,
+///     wallet::AccountId,
 /// };
 /// use zcash_primitives::zip32::ExtendedFullViewingKey;
 ///
-/// let extsk = spending_key(&[0; 32][..], COIN_TYPE, 0);
+/// let extsk = spending_key(&[0; 32][..], COIN_TYPE, AccountId(0));
 /// let extfvk = ExtendedFullViewingKey::from(&extsk);
 /// let encoded = encode_extended_full_viewing_key(HRP_SAPLING_EXTENDED_FULL_VIEWING_KEY, &extfvk);
 /// ```
@@ -114,7 +173,7 @@ pub fn decode_extended_full_viewing_key(
 /// };
 /// use zcash_primitives::{
 ///     constants::testnet::HRP_SAPLING_PAYMENT_ADDRESS,
-///     primitives::{Diversifier, PaymentAddress},
+///     sapling::{Diversifier, PaymentAddress},
 /// };
 ///
 /// let rng = &mut XorShiftRng::from_seed([
@@ -133,9 +192,16 @@ pub fn decode_extended_full_viewing_key(
 ///     "ztestsapling1qqqqqqqqqqqqqqqqqqcguyvaw2vjk4sdyeg0lc970u659lvhqq7t0np6hlup5lusxle75ss7jnk",
 /// );
 /// ```
-/// [`PaymentAddress`]: zcash_primitives::primitives::PaymentAddress
+/// [`PaymentAddress`]: zcash_primitives::sapling::PaymentAddress
 pub fn encode_payment_address(hrp: &str, addr: &PaymentAddress) -> String {
     bech32_encode(hrp, |w| w.write_all(&addr.to_bytes()))
+}
+
+pub fn encode_payment_address_p<P: consensus::Parameters>(
+    params: &P,
+    addr: &PaymentAddress,
+) -> String {
+    encode_payment_address(params.hrp_sapling_payment_address(), addr)
 }
 
 /// Decodes a [`PaymentAddress`] from a Bech32-encoded string.
@@ -152,7 +218,7 @@ pub fn encode_payment_address(hrp: &str, addr: &PaymentAddress) -> String {
 /// };
 /// use zcash_primitives::{
 ///     constants::testnet::HRP_SAPLING_PAYMENT_ADDRESS,
-///     primitives::{Diversifier, PaymentAddress},
+///     sapling::{Diversifier, PaymentAddress},
 /// };
 ///
 /// let rng = &mut XorShiftRng::from_seed([
@@ -174,7 +240,7 @@ pub fn encode_payment_address(hrp: &str, addr: &PaymentAddress) -> String {
 ///     Ok(Some(pa)),
 /// );
 /// ```
-/// [`PaymentAddress`]: zcash_primitives::primitives::PaymentAddress
+/// [`PaymentAddress`]: zcash_primitives::sapling::PaymentAddress
 pub fn decode_payment_address(hrp: &str, s: &str) -> Result<Option<PaymentAddress>, Error> {
     bech32_decode(hrp, s, |data| {
         if data.len() != 43 {
@@ -241,6 +307,17 @@ pub fn encode_transparent_address(
     bs58::encode(decoded).with_check().into_string()
 }
 
+pub fn encode_transparent_address_p<P: consensus::Parameters>(
+    params: &P,
+    addr: &TransparentAddress,
+) -> String {
+    encode_transparent_address(
+        &params.b58_pubkey_address_prefix(),
+        &params.b58_script_address_prefix(),
+        addr,
+    )
+}
+
 /// Decodes a [`TransparentAddress`] from a Base58Check-encoded string.
 ///
 /// # Examples
@@ -302,7 +379,7 @@ mod tests {
     use rand_xorshift::XorShiftRng;
     use zcash_primitives::{
         constants,
-        primitives::{Diversifier, PaymentAddress},
+        sapling::{Diversifier, PaymentAddress},
         zip32::ExtendedSpendingKey,
     };
 

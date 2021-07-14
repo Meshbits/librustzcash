@@ -25,13 +25,15 @@ pub enum ChainInvalid {
 #[derive(Debug)]
 pub enum Error<NoteId> {
     /// Unable to create a new spend because the wallet balance is not sufficient.
+    /// The first argument is the amount available, the second is the amount needed
+    /// to construct a valid transaction.
     InsufficientBalance(Amount, Amount),
 
     /// Chain validation detected an error in the block at the specified block height.
     InvalidChain(BlockHeight, ChainInvalid),
 
     /// A provided extsk is not associated with the specified account.
-    InvalidExtSK(AccountId),
+    InvalidExtSk(AccountId),
 
     /// The root of an output's witness tree in a newly arrived transaction does
     /// not correspond to root of the stored commitment tree at the recorded height.
@@ -57,6 +59,12 @@ pub enum Error<NoteId> {
     /// The wallet attempted a sapling-only operation at a block
     /// height when Sapling was not yet active.
     SaplingNotActive,
+
+    /// A memo is required when constructing a Sapling output
+    MemoRequired,
+
+    /// It is forbidden to provide a memo when constructing a transparent output.
+    MemoForbidden,
 }
 
 impl ChainInvalid {
@@ -80,7 +88,7 @@ impl<N: fmt::Display> fmt::Display for Error<N> {
             Error::InvalidChain(upper_bound, cause) => {
                 write!(f, "Invalid chain (upper bound: {}): {:?}", u32::from(*upper_bound), cause)
             }
-            Error::InvalidExtSK(account) => {
+            Error::InvalidExtSk(account) => {
                 write!(f, "Incorrect ExtendedSpendingKey for account {}", account.0)
             }
             Error::InvalidNewWitnessAnchor(output, txid, last_height, anchor) => write!(
@@ -97,6 +105,8 @@ impl<N: fmt::Display> fmt::Display for Error<N> {
             Error::Builder(e) => write!(f, "{:?}", e),
             Error::Protobuf(e) => write!(f, "{}", e),
             Error::SaplingNotActive => write!(f, "Could not determine Sapling upgrade activation height."),
+            Error::MemoRequired => write!(f, "A memo is required when sending to a Sapling address."),
+            Error::MemoForbidden => write!(f, "It is not possible to send a memo to a transparent address."),
         }
     }
 }

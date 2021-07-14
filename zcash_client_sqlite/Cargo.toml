@@ -4,6 +4,7 @@ description = "An SQLite-based Zcash light client"
 version = "0.3.0"
 authors = [
     "Jack Grigg <jack@z.cash>",
+    "Kris Nuttycombe <kris@electriccoin.co>"
 ]
 homepage = "https://github.com/zcash/librustzcash"
 repository = "https://github.com/zcash/librustzcash"
@@ -20,9 +21,10 @@ jubjub = "0.5.1"
 protobuf = "2.20"
 rand_core = "0.5.1"
 rusqlite = { version = "0.24", features = ["bundled", "time"] }
+secp256k1 = { version = "0.19" }
 time = "0.2"
-zcash_client_backend = { version = "0.5", path = "../zcash_client_backend" }
-zcash_primitives = { version = "0.5", path = "../zcash_primitives" }
+zcash_client_backend = { version = "0.5", path = "../zcash_client_backend", features = ["transparent-inputs"] }
+zcash_primitives = { version = "0.5", path = "../zcash_primitives", features = ["transparent-inputs"] }
 
 [dev-dependencies]
 rand_core = "0.5.1"

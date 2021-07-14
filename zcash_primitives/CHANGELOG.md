@@ -6,6 +6,19 @@ and this library adheres to Rust's notion of
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+### Changed
+- MSRV is now 1.51.0.
+- The following modules and helpers have been moved into
+  `zcash_primitives::sapling`:
+  - `zcash_primitives::group_hash`
+  - `zcash_primitives::keys`
+  - `zcash_primitives::pedersen_hash`
+  - `zcash_primitives::primitives::*` (moved into `zcash_primitives::sapling`)
+  - `zcash_primitives::prover`
+  - `zcash_primitives::redjubjub`
+  - `zcash_primitives::util::{hash_to_scalar, generate_random_rseed}`
+- Renamed `zcash_primitives::transaction::components::JSDescription` to
+  `JsDescription` (matching Rust naming conventions).
 
 ## [0.5.0] - 2021-03-26
 ### Added

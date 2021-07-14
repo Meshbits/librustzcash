@@ -1,10 +1,8 @@
-//! Functions for scanning the chain and extracting relevant information.
 use std::fmt::Debug;
-
 use zcash_primitives::{
     consensus::{self, BranchId, NetworkUpgrade},
     memo::MemoBytes,
-    prover::TxProver,
+    sapling::prover::TxProver,
     transaction::{
         builder::Builder,
         components::{amount::DEFAULT_FEE, Amount},
@@ -15,10 +13,19 @@ use zcash_primitives::{
 
 use crate::{
     address::RecipientAddress,
-    data_api::{error::Error, ReceivedTransaction, SentTransaction, WalletWrite},
+    data_api::{
+        error::Error, DecryptedTransaction, SentTransaction, SentTransactionOutput, WalletWrite,
+    },
     decrypt_transaction,
     wallet::{AccountId, OvkPolicy},
+    zip321::{Payment, TransactionRequest},
 };
+
+#[cfg(feature = "transparent-inputs")]
+use zcash_primitives::{legacy::Script, transaction::components::TxOut};
+
+#[cfg(feature = "transparent-inputs")]
+use crate::keys::derive_transparent_address_from_secret_key;
 
 pub const ANCHOR_OFFSET: u32 = 10;
 
@@ -34,6 +41,8 @@ where
     P: consensus::Parameters,
     D: WalletWrite<Error = E>,
 {
+    debug!("decrypt_and_store: {:?}", tx);
+
     // Fetch the ExtendedFullViewingKeys we are tracking
     let extfvks = data.get_extended_full_viewing_keys()?;
 
@@ -47,17 +56,20 @@ where
         .or_else(|| params.activation_height(NetworkUpgrade::Sapling))
         .ok_or(Error::SaplingNotActive)?;
 
-    let outputs = decrypt_transaction(params, height, tx, &extfvks);
-    if outputs.is_empty() {
-        Ok(())
-    } else {
-        data.store_received_tx(&ReceivedTransaction {
-            tx,
-            outputs: &outputs,
-        })?;
+    let sapling_outputs = decrypt_transaction(params, height, tx, &extfvks);
 
-        Ok(())
+    if !(sapling_outputs.is_empty() && tx.vout.is_empty()) {
+        let nullifiers = data.get_all_nullifiers()?;
+        data.store_decrypted_tx(
+            &DecryptedTransaction {
+                tx,
+                sapling_outputs: &sapling_outputs,
+            },
+            &nullifiers,
+        )?;
     }
+
+    Ok(())
 }
 
 #[allow(clippy::needless_doctest_main)]
@@ -103,7 +115,7 @@ where
 ///     wallet::{AccountId, OvkPolicy},
 /// };
 /// use zcash_client_sqlite::{
-///     WalletDB,
+///     WalletDb,
 ///     error::SqliteClientError,
 ///     wallet::init::init_wallet_db,
 /// };
@@ -123,11 +135,11 @@ where
 /// };
 ///
 /// let account = AccountId(0);
-/// let extsk = spending_key(&[0; 32][..], COIN_TYPE, account.0);
+/// let extsk = spending_key(&[0; 32][..], COIN_TYPE, account);
 /// let to = extsk.default_address().unwrap().1.into();
 ///
 /// let data_file = NamedTempFile::new().unwrap();
-/// let db_read = WalletDB::for_path(data_file, Network::TestNetwork).unwrap();
+/// let db_read = WalletDb::for_path(data_file, Network::TestNetwork).unwrap();
 /// init_wallet_db(&db_read)?;
 /// let mut db = db_read.get_update_ops()?;
 ///
@@ -154,8 +166,37 @@ pub fn create_spend_to_address<E, N, P, D, R>(
     account: AccountId,
     extsk: &ExtendedSpendingKey,
     to: &RecipientAddress,
-    value: Amount,
+    amount: Amount,
     memo: Option<MemoBytes>,
+    ovk_policy: OvkPolicy,
+) -> Result<R, E>
+where
+    E: From<Error<N>>,
+    P: consensus::Parameters + Clone,
+    R: Copy + Debug,
+    D: WalletWrite<Error = E, TxRef = R>,
+{
+    let req = TransactionRequest {
+        payments: vec![Payment {
+            recipient_address: to.clone(),
+            amount,
+            memo,
+            label: None,
+            message: None,
+            other_params: vec![],
+        }],
+    };
+
+    spend(wallet_db, params, prover, account, extsk, &req, ovk_policy)
+}
+
+pub fn spend<E, N, P, D, R>(
+    wallet_db: &mut D,
+    params: &P,
+    prover: impl TxProver,
+    account: AccountId,
+    extsk: &ExtendedSpendingKey,
+    request: &TransactionRequest,
     ovk_policy: OvkPolicy,
 ) -> Result<R, E>
 where
@@ -168,7 +209,7 @@ where
     // ExtendedFullViewingKey for the account we are spending from.
     let extfvk = ExtendedFullViewingKey::from(extsk);
     if !wallet_db.is_valid_account_extfvk(account, &extfvk)? {
-        return Err(E::from(Error::InvalidExtSK(account)));
+        return Err(E::from(Error::InvalidExtSk(account)));
     }
 
     // Apply the outgoing viewing key policy.
@@ -183,8 +224,9 @@ where
         .get_target_and_anchor_heights()
         .and_then(|x| x.ok_or_else(|| Error::ScanRequired.into()))?;
 
-    let target_value = value + DEFAULT_FEE;
-    let spendable_notes = wallet_db.select_spendable_notes(account, target_value, anchor_height)?;
+    let target_value = request.payments.iter().map(|p| p.amount).sum::<Amount>() + DEFAULT_FEE;
+    let spendable_notes =
+        wallet_db.select_unspent_sapling_notes(account, target_value, anchor_height)?;
 
     // Confirm we were able to select sufficient value
     let selected_value = spendable_notes.iter().map(|n| n.note_value).sum();
@@ -196,6 +238,7 @@ where
     }
 
     // Create the transaction
+    let consensus_branch_id = BranchId::for_height(params, height);
     let mut builder = Builder::new(params.clone(), height);
     for selected in spendable_notes {
         let from = extfvk
@@ -205,7 +248,7 @@ where
             .unwrap(); //DiversifyHash would have to unexpectedly return the zero point for this to be None
 
         let note = from
-            .create_note(u64::from(selected.note_value), selected.rseed)
+            .create_note(selected.note_value.into(), selected.rseed)
             .unwrap();
 
         let merkle_path = selected.witness.path().expect("the tree is not empty");
@@ -215,44 +258,151 @@ where
             .map_err(Error::Builder)?;
     }
 
-    match to {
-        RecipientAddress::Shielded(to) => {
-            builder.add_sapling_output(ovk, to.clone(), value, memo.clone())
-        }
-
-        RecipientAddress::Transparent(to) => builder.add_transparent_output(&to, value),
+    for payment in &request.payments {
+        match &payment.recipient_address {
+            RecipientAddress::Shielded(to) => builder
+                .add_sapling_output(
+                    ovk,
+                    to.clone(),
+                    payment.amount,
+                    payment.memo.clone().unwrap_or_else(MemoBytes::empty),
+                )
+                .map_err(Error::Builder),
+            RecipientAddress::Transparent(to) => {
+                if payment.memo.is_some() {
+                    Err(Error::MemoForbidden)
+                } else {
+                    builder
+                        .add_transparent_output(&to, payment.amount)
+                        .map_err(Error::Builder)
+                }
+            }
+        }?
     }
-    .map_err(Error::Builder)?;
 
-    let consensus_branch_id = BranchId::for_height(params, height);
     let (tx, tx_metadata) = builder
         .build(consensus_branch_id, &prover)
         .map_err(Error::Builder)?;
 
-    let output_index = match to {
-        // Sapling outputs are shuffled, so we need to look up where the output ended up.
-        RecipientAddress::Shielded(_) => match tx_metadata.output_index(0) {
-            Some(idx) => idx,
-            None => panic!("Output 0 should exist in the transaction"),
-        },
-        RecipientAddress::Transparent(addr) => {
-            let script = addr.script();
-            tx.vout
-                .iter()
-                .enumerate()
-                .find(|(_, tx_out)| tx_out.script_pubkey == script)
-                .map(|(index, _)| index)
-                .expect("we sent to this address")
+    let sent_outputs = request.payments.iter().enumerate().map(|(i, payment)| {
+        let idx = match &payment.recipient_address {
+            // Sapling outputs are shuffled, so we need to look up where the output ended up.
+            RecipientAddress::Shielded(_) =>
+                tx_metadata.output_index(i).expect("An output should exist in the transaction for each shielded payment."),
+            RecipientAddress::Transparent(addr) => {
+                let script = addr.script();
+                tx.vout
+                    .iter()
+                    .enumerate()
+                    .find(|(_, tx_out)| tx_out.script_pubkey == script)
+                    .map(|(index, _)| index)
+                    .expect("An output should exist in the transaction for each transparent payment.")
+            }
+        };
+
+        SentTransactionOutput {
+            output_index: idx,
+            recipient_address: &payment.recipient_address,
+            value: payment.amount,
+            memo: payment.memo.clone()
         }
-    };
+    }).collect();
 
     wallet_db.store_sent_tx(&SentTransaction {
         tx: &tx,
         created: time::OffsetDateTime::now_utc(),
-        output_index,
+        outputs: sent_outputs,
         account,
-        recipient_address: to,
-        value,
-        memo,
+        utxos_spent: vec![],
+    })
+}
+
+#[cfg(feature = "transparent-inputs")]
+#[allow(clippy::too_many_arguments)]
+pub fn shield_funds<E, N, P, D, R>(
+    wallet_db: &mut D,
+    params: &P,
+    prover: impl TxProver,
+    account: AccountId,
+    sk: &secp256k1::SecretKey,
+    extsk: &ExtendedSpendingKey,
+    memo: &MemoBytes,
+    confirmations: u32,
+) -> Result<D::TxRef, E>
+where
+    E: From<Error<N>>,
+    P: consensus::Parameters,
+    R: Copy + Debug,
+    D: WalletWrite<Error = E, TxRef = R>,
+{
+    let (latest_scanned_height, latest_anchor) = wallet_db
+        .get_target_and_anchor_heights()
+        .and_then(|x| x.ok_or_else(|| Error::ScanRequired.into()))?;
+
+    // derive the corresponding t-address
+    let taddr = derive_transparent_address_from_secret_key(sk);
+
+    // derive own shielded address from the provided extended spending key
+    let z_address = extsk.default_address().unwrap().1;
+
+    let exfvk = ExtendedFullViewingKey::from(extsk);
+
+    let ovk = exfvk.fvk.ovk;
+
+    // get UTXOs from DB
+    let utxos = wallet_db.get_unspent_transparent_utxos(&taddr, latest_anchor - confirmations)?;
+    let total_amount = utxos.iter().map(|utxo| utxo.value).sum::<Amount>();
+
+    let fee = DEFAULT_FEE;
+    if fee >= total_amount {
+        return Err(E::from(Error::InsufficientBalance(total_amount, fee)));
+    }
+
+    let amount_to_shield = total_amount - fee;
+
+    let mut builder = Builder::new(params.clone(), latest_scanned_height);
+
+    #[cfg(feature = "transparent-inputs")]
+    for utxo in &utxos {
+        let coin = TxOut {
+            value: utxo.value,
+            script_pubkey: Script {
+                0: utxo.script.clone(),
+            },
+        };
+
+        builder
+            .add_transparent_input(*sk, utxo.outpoint.clone(), coin)
+            .map_err(Error::Builder)?;
+    }
+
+    // there are no sapling notes so we set the change manually
+    builder.send_change_to(ovk, z_address.clone());
+
+    // add the sapling output to shield the funds
+    builder
+        .add_sapling_output(Some(ovk), z_address.clone(), amount_to_shield, memo.clone())
+        .map_err(Error::Builder)?;
+
+    let consensus_branch_id = BranchId::for_height(params, latest_anchor);
+
+    let (tx, tx_metadata) = builder
+        .build(consensus_branch_id, &prover)
+        .map_err(Error::Builder)?;
+    let output_index = tx_metadata.output_index(0).expect(
+        "No sapling note was created in autoshielding transaction. This is a programming error.",
+    );
+
+    wallet_db.store_sent_tx(&SentTransaction {
+        tx: &tx,
+        created: time::OffsetDateTime::now_utc(),
+        account,
+        outputs: vec![SentTransactionOutput {
+            output_index,
+            recipient_address: &RecipientAddress::Shielded(z_address),
+            value: amount_to_shield,
+            memo: Some(memo.clone()),
+        }],
+        utxos_spent: utxos.iter().map(|utxo| utxo.outpoint.clone()).collect(),
     })
 }
