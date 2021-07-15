@@ -532,11 +532,11 @@ mod tests {
             BranchId::Sprout,
         );
         assert_eq!(
-            BranchId::for_height(&MAIN_NETWORK, BlockHeight(419_199)),
+            BranchId::for_height(&MAIN_NETWORK, BlockHeight(200_000)),
             BranchId::Overwinter,
         );
         assert_eq!(
-            BranchId::for_height(&MAIN_NETWORK, BlockHeight(419_200)),
+            BranchId::for_height(&MAIN_NETWORK, BlockHeight(200_000)),
             BranchId::Sapling,
         );
         assert_eq!(
