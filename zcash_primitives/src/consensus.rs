@@ -191,7 +191,7 @@ impl Parameters for MainNetwork {
     fn activation_height(&self, nu: NetworkUpgrade) -> Option<BlockHeight> {
         match nu {
             NetworkUpgrade::Overwinter => Some(BlockHeight(0)),
-            NetworkUpgrade::Sapling => Some(BlockHeight(200_000)),
+            NetworkUpgrade::Sapling => Some(BlockHeight(152_855)),
             NetworkUpgrade::Blossom => Some(BlockHeight(4_000_000_000)),
             NetworkUpgrade::Heartwood => Some(BlockHeight(4_000_000_000)),
             NetworkUpgrade::Canopy => Some(BlockHeight(4_000_000_000)),
@@ -235,7 +235,7 @@ impl Parameters for TestNetwork {
     fn activation_height(&self, nu: NetworkUpgrade) -> Option<BlockHeight> {
         match nu {
             NetworkUpgrade::Overwinter => Some(BlockHeight(0)),
-            NetworkUpgrade::Sapling => Some(BlockHeight(200_000)),
+            NetworkUpgrade::Sapling => Some(BlockHeight(152_855)),
             NetworkUpgrade::Blossom => Some(BlockHeight(4_000_000_000)),
             NetworkUpgrade::Heartwood => Some(BlockHeight(4_000_000_000)),
             NetworkUpgrade::Canopy => Some(BlockHeight(4_000_000_000)),
@@ -532,11 +532,11 @@ mod tests {
             BranchId::Sprout,
         );
         assert_eq!(
-            BranchId::for_height(&MAIN_NETWORK, BlockHeight(200_000)),
+            BranchId::for_height(&MAIN_NETWORK, BlockHeight(152_855)),
             BranchId::Overwinter,
         );
         assert_eq!(
-            BranchId::for_height(&MAIN_NETWORK, BlockHeight(200_000)),
+            BranchId::for_height(&MAIN_NETWORK, BlockHeight(152_855)),
             BranchId::Sapling,
         );
         assert_eq!(
