@@ -228,9 +228,9 @@
 
         <span class="kw">let </span><span class="kw-2">mut </span>ctx = SaplingVerificationContextInner::new();
 
-        <span class="kw">for </span>spend <span class="kw">in </span>bundle.shielded_spends() {
+        <span class="kw">for </span>spend <span class="kw">in </span>bundle.shielded_spends {
             <span class="comment">// Deserialize the proof
-            </span><span class="kw">let </span>zkproof = <span class="kw">match </span>groth16::Proof::read(<span class="kw-2">&amp;</span>spend.zkproof()[..]) {
+            </span><span class="kw">let </span>zkproof = <span class="kw">match </span>groth16::Proof::read(<span class="kw-2">&amp;</span>spend.zkproof[..]) {
                 <span class="prelude-val">Ok</span>(p) =&gt; p,
                 <span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; <span class="kw">return </span><span class="bool-val">false</span>,
             };
@@ -238,12 +238,12 @@
             <span class="comment">// Check the Spend consensus rules, and batch its proof and spend
             // authorization signature.
             </span><span class="kw">let </span>consensus_rules_passed = ctx.check_spend(
-                spend.cv(),
-                <span class="kw-2">*</span>spend.anchor(),
-                <span class="kw-2">&amp;</span>spend.nullifier().<span class="number">0</span>,
-                spend.rk(),
+                spend.cv,
+                spend.anchor,
+                <span class="kw-2">&amp;</span>spend.nullifier.<span class="number">0</span>,
+                spend.rk,
                 <span class="kw-2">&amp;</span>sighash,
-                spend.spend_auth_sig(),
+                spend.spend_auth_sig,
                 zkproof,
                 <span class="self">self</span>,
                 |this, rk, <span class="kw">_</span>, spend_auth_sig| {
@@ -269,23 +269,23 @@
             }
         }
 
-        <span class="kw">for </span>output <span class="kw">in </span>bundle.shielded_outputs() {
+        <span class="kw">for </span>output <span class="kw">in </span>bundle.shielded_outputs {
             <span class="comment">// Deserialize the ephemeral key
-            </span><span class="kw">let </span>epk = <span class="kw">match </span>jubjub::ExtendedPoint::from_bytes(<span class="kw-2">&amp;</span>output.ephemeral_key().<span class="number">0</span>).into() {
+            </span><span class="kw">let </span>epk = <span class="kw">match </span>jubjub::ExtendedPoint::from_bytes(<span class="kw-2">&amp;</span>output.ephemeral_key.<span class="number">0</span>).into() {
                 <span class="prelude-val">Some</span>(p) =&gt; p,
                 <span class="prelude-val">None </span>=&gt; <span class="kw">return </span><span class="bool-val">false</span>,
             };
 
             <span class="comment">// Deserialize the proof
-            </span><span class="kw">let </span>zkproof = <span class="kw">match </span>groth16::Proof::read(<span class="kw-2">&amp;</span>output.zkproof()[..]) {
+            </span><span class="kw">let </span>zkproof = <span class="kw">match </span>groth16::Proof::read(<span class="kw-2">&amp;</span>output.zkproof[..]) {
                 <span class="prelude-val">Ok</span>(p) =&gt; p,
                 <span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; <span class="kw">return </span><span class="bool-val">false</span>,
             };
 
             <span class="comment">// Check the Output consensus rules, and batch its proof.
             </span><span class="kw">let </span>consensus_rules_passed = ctx.check_output(
-                output.cv(),
-                <span class="kw-2">*</span>output.cmu(),
+                output.cv,
+                output.cmu,
                 epk,
                 zkproof,
                 |proof, public_inputs| {
@@ -300,9 +300,9 @@
 
         <span class="comment">// Check the whole-bundle consensus rules, and batch the binding signature.
         </span>ctx.final_check(
-            <span class="kw-2">*</span>bundle.value_balance(),
+            bundle.value_balance,
             <span class="kw-2">&amp;</span>sighash,
-            bundle.authorization().binding_sig,
+            bundle.authorization.binding_sig,
             |bvk, <span class="kw">_</span>, binding_sig| {
                 <span class="kw">let </span>bvk =
                     redjubjub::VerificationKeyBytes::&lt;redjubjub::Binding&gt;::from(bvk.<span class="number">0</span>.to_bytes());

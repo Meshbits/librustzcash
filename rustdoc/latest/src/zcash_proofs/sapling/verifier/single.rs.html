@@ -99,14 +99,13 @@
 <a href="#99" id="99">99</a>
 <a href="#100" id="100">100</a>
 <a href="#101" id="101">101</a>
+<a href="#102" id="102">102</a>
+<a href="#103" id="103">103</a>
 </pre><pre class="rust"><code><span class="kw">use </span>bellman::groth16::{verify_proof, PreparedVerifyingKey, Proof};
 <span class="kw">use </span>bls12_381::Bls12;
 <span class="kw">use </span>zcash_primitives::{
     constants::{SPENDING_KEY_GENERATOR, VALUE_COMMITMENT_RANDOMNESS_GENERATOR},
-    sapling::{
-        redjubjub::{PublicKey, Signature},
-        value::ValueCommitment,
-    },
+    sapling::redjubjub::{PublicKey, Signature},
     transaction::components::Amount,
 };
 
@@ -132,7 +131,7 @@
     </span><span class="attr">#[allow(clippy::too_many_arguments)]
     </span><span class="kw">pub fn </span>check_spend(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
-        cv: <span class="kw-2">&amp;</span>ValueCommitment,
+        cv: jubjub::ExtendedPoint,
         anchor: bls12_381::Scalar,
         nullifier: <span class="kw-2">&amp;</span>[u8; <span class="number">32</span>],
         rk: PublicKey,
@@ -146,13 +145,18 @@
             cv,
             anchor,
             nullifier,
-            <span class="kw-2">&amp;</span>rk,
+            rk,
             sighash_value,
-            <span class="kw-2">&amp;</span>spend_auth_sig,
+            spend_auth_sig,
             zkproof,
             <span class="kw-2">&amp;mut </span>(),
             |<span class="kw">_</span>, rk, msg, spend_auth_sig| {
-                rk.verify_with_zip216(<span class="kw-2">&amp;</span>msg, spend_auth_sig, SPENDING_KEY_GENERATOR, zip216_enabled)
+                rk.verify_with_zip216(
+                    <span class="kw-2">&amp;</span>msg,
+                    <span class="kw-2">&amp;</span>spend_auth_sig,
+                    SPENDING_KEY_GENERATOR,
+                    zip216_enabled,
+                )
             },
             |<span class="kw">_</span>, proof, public_inputs| {
                 verify_proof(verifying_key, <span class="kw-2">&amp;</span>proof, <span class="kw-2">&amp;</span>public_inputs[..]).is_ok()
@@ -164,7 +168,7 @@
     /// accumulating its value commitment inside the context for later use.
     </span><span class="kw">pub fn </span>check_output(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
-        cv: <span class="kw-2">&amp;</span>ValueCommitment,
+        cv: jubjub::ExtendedPoint,
         cmu: bls12_381::Scalar,
         epk: jubjub::ExtendedPoint,
         zkproof: Proof&lt;Bls12&gt;,

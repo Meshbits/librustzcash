@@ -933,19 +933,6 @@
 <a href="#933" id="933">933</a>
 <a href="#934" id="934">934</a>
 <a href="#935" id="935">935</a>
-<a href="#936" id="936">936</a>
-<a href="#937" id="937">937</a>
-<a href="#938" id="938">938</a>
-<a href="#939" id="939">939</a>
-<a href="#940" id="940">940</a>
-<a href="#941" id="941">941</a>
-<a href="#942" id="942">942</a>
-<a href="#943" id="943">943</a>
-<a href="#944" id="944">944</a>
-<a href="#945" id="945">945</a>
-<a href="#946" id="946">946</a>
-<a href="#947" id="947">947</a>
-<a href="#948" id="948">948</a>
 </pre><pre class="rust"><code><span class="doccomment">//! The Sapling circuits.
 
 </span><span class="kw">use </span>group::{ff::PrimeField, Curve};
@@ -955,7 +942,7 @@
 <span class="kw">use </span>zcash_primitives::constants;
 
 <span class="kw">use </span>zcash_primitives::sapling::{
-    PaymentAddress, ProofGenerationKey, SAPLING_COMMITMENT_TREE_DEPTH,
+    PaymentAddress, ProofGenerationKey, ValueCommitment, SAPLING_COMMITMENT_TREE_DEPTH,
 };
 
 <span class="kw">use </span><span class="kw">super</span>::ecc;
@@ -976,26 +963,10 @@
 
 <span class="kw">pub const </span>TREE_DEPTH: usize = SAPLING_COMMITMENT_TREE_DEPTH;
 
-<span class="doccomment">/// The opening (value and randomness) of a Sapling value commitment.
-</span><span class="attr">#[derive(Clone)]
-</span><span class="kw">pub struct </span>ValueCommitmentOpening {
-    <span class="kw">pub </span>value: u64,
-    <span class="kw">pub </span>randomness: jubjub::Scalar,
-}
-
-<span class="attr">#[cfg(test)]
-</span><span class="kw">impl </span>ValueCommitmentOpening {
-    <span class="kw">fn </span>commitment(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; jubjub::ExtendedPoint {
-        <span class="kw">let </span>cv = (constants::VALUE_COMMITMENT_VALUE_GENERATOR * jubjub::Fr::from(<span class="self">self</span>.value))
-            + (constants::VALUE_COMMITMENT_RANDOMNESS_GENERATOR * <span class="self">self</span>.randomness);
-        cv.into()
-    }
-}
-
 <span class="doccomment">/// This is an instance of the `Spend` circuit.
 </span><span class="kw">pub struct </span>Spend {
-    <span class="doccomment">/// The opening of a Pedersen commitment to the value being spent.
-    </span><span class="kw">pub </span>value_commitment_opening: <span class="prelude-ty">Option</span>&lt;ValueCommitmentOpening&gt;,
+    <span class="doccomment">/// Pedersen commitment to the value being spent
+    </span><span class="kw">pub </span>value_commitment: <span class="prelude-ty">Option</span>&lt;ValueCommitment&gt;,
 
     <span class="doccomment">/// Key required to construct proofs for spending notes
     /// for a particular spending key
@@ -1020,8 +991,8 @@
 
 <span class="doccomment">/// This is an output circuit instance.
 </span><span class="kw">pub struct </span>Output {
-    <span class="doccomment">/// The opening of a Pedersen commitment to the value being spent.
-    </span><span class="kw">pub </span>value_commitment_opening: <span class="prelude-ty">Option</span>&lt;ValueCommitmentOpening&gt;,
+    <span class="doccomment">/// Pedersen commitment to the value being spent
+    </span><span class="kw">pub </span>value_commitment: <span class="prelude-ty">Option</span>&lt;ValueCommitment&gt;,
 
     <span class="doccomment">/// The payment address of the recipient
     </span><span class="kw">pub </span>payment_address: <span class="prelude-ty">Option</span>&lt;PaymentAddress&gt;,
@@ -1037,7 +1008,7 @@
 /// input to the circuit
 </span><span class="kw">fn </span>expose_value_commitment&lt;CS&gt;(
     <span class="kw-2">mut </span>cs: CS,
-    value_commitment_opening: <span class="prelude-ty">Option</span>&lt;ValueCommitmentOpening&gt;,
+    value_commitment: <span class="prelude-ty">Option</span>&lt;ValueCommitment&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;boolean::Boolean&gt;, SynthesisError&gt;
 <span class="kw">where
     </span>CS: ConstraintSystem&lt;bls12_381::Scalar&gt;,
@@ -1045,7 +1016,7 @@
     <span class="comment">// Booleanize the value into little-endian bit order
     </span><span class="kw">let </span>value_bits = boolean::u64_into_boolean_vec_le(
         cs.namespace(|| <span class="string">&quot;value&quot;</span>),
-        value_commitment_opening.as_ref().map(|c| c.value),
+        value_commitment.as_ref().map(|c| c.value),
     )<span class="question-mark">?</span>;
 
     <span class="comment">// Compute the note value in the exponent
@@ -1060,7 +1031,7 @@
     // it doesn&#39;t matter for security.
     </span><span class="kw">let </span>rcv = boolean::field_into_boolean_vec_le(
         cs.namespace(|| <span class="string">&quot;rcv&quot;</span>),
-        value_commitment_opening.as_ref().map(|c| c.randomness),
+        value_commitment.as_ref().map(|c| c.randomness),
     )<span class="question-mark">?</span>;
 
     <span class="comment">// Compute the randomness in the exponent
@@ -1194,7 +1165,7 @@
             <span class="comment">// Get the value in little-endian bit order
             </span><span class="kw">let </span>value_bits = expose_value_commitment(
                 cs.namespace(|| <span class="string">&quot;value commitment&quot;</span>),
-                <span class="self">self</span>.value_commitment_opening,
+                <span class="self">self</span>.value_commitment,
             )<span class="question-mark">?</span>;
 
             <span class="comment">// Compute the note&#39;s value as a linear combination
@@ -1368,7 +1339,7 @@
         // in the note.
         </span>note_contents.extend(expose_value_commitment(
             cs.namespace(|| <span class="string">&quot;value commitment&quot;</span>),
-            <span class="self">self</span>.value_commitment_opening,
+            <span class="self">self</span>.value_commitment,
         )<span class="question-mark">?</span>);
 
         <span class="comment">// Let&#39;s deal with g_d
@@ -1493,7 +1464,7 @@
     <span class="kw">let </span>tree_depth = <span class="number">32</span>;
 
     <span class="kw">for _ in </span><span class="number">0</span>..<span class="number">10 </span>{
-        <span class="kw">let </span>value_commitment = ValueCommitmentOpening {
+        <span class="kw">let </span>value_commitment = ValueCommitment {
             value: rng.next_u64(),
             randomness: jubjub::Fr::random(<span class="kw-2">&amp;mut </span>rng),
         };
@@ -1528,7 +1499,8 @@
 
         {
             <span class="kw">let </span>rk = jubjub::ExtendedPoint::from(viewing_key.rk(ar)).to_affine();
-            <span class="kw">let </span>expected_value_commitment = value_commitment.commitment().to_affine();
+            <span class="kw">let </span>expected_value_commitment =
+                jubjub::ExtendedPoint::from(value_commitment.commitment()).to_affine();
             <span class="kw">let </span>note = Note {
                 value: value_commitment.value,
                 g_d,
@@ -1580,7 +1552,7 @@
             <span class="kw">let </span><span class="kw-2">mut </span>cs = TestConstraintSystem::new();
 
             <span class="kw">let </span>instance = Spend {
-                value_commitment_opening: <span class="prelude-val">Some</span>(value_commitment.clone()),
+                value_commitment: <span class="prelude-val">Some</span>(value_commitment.clone()),
                 proof_generation_key: <span class="prelude-val">Some</span>(proof_generation_key.clone()),
                 payment_address: <span class="prelude-val">Some</span>(payment_address.clone()),
                 commitment_randomness: <span class="prelude-val">Some</span>(commitment_randomness),
@@ -1661,7 +1633,7 @@
     ];
 
     <span class="kw">for </span>i <span class="kw">in </span><span class="number">0</span>..<span class="number">10 </span>{
-        <span class="kw">let </span>value_commitment = ValueCommitmentOpening {
+        <span class="kw">let </span>value_commitment = ValueCommitment {
             value: i,
             randomness: jubjub::Fr::from(<span class="number">1000 </span>* (i + <span class="number">1</span>)),
         };
@@ -1696,7 +1668,8 @@
 
         {
             <span class="kw">let </span>rk = jubjub::ExtendedPoint::from(viewing_key.rk(ar)).to_affine();
-            <span class="kw">let </span>expected_value_commitment = value_commitment.commitment().to_affine();
+            <span class="kw">let </span>expected_value_commitment =
+                jubjub::ExtendedPoint::from(value_commitment.commitment()).to_affine();
             <span class="macro">assert_eq!</span>(
                 expected_value_commitment.get_u(),
                 bls12_381::Scalar::from_str_vartime(expected_commitment_us[i <span class="kw">as </span>usize]).unwrap()
@@ -1756,7 +1729,7 @@
             <span class="kw">let </span><span class="kw-2">mut </span>cs = TestConstraintSystem::new();
 
             <span class="kw">let </span>instance = Spend {
-                value_commitment_opening: <span class="prelude-val">Some</span>(value_commitment.clone()),
+                value_commitment: <span class="prelude-val">Some</span>(value_commitment.clone()),
                 proof_generation_key: <span class="prelude-val">Some</span>(proof_generation_key.clone()),
                 payment_address: <span class="prelude-val">Some</span>(payment_address.clone()),
                 commitment_randomness: <span class="prelude-val">Some</span>(commitment_randomness),
@@ -1809,7 +1782,7 @@
     ]);
 
     <span class="kw">for _ in </span><span class="number">0</span>..<span class="number">100 </span>{
-        <span class="kw">let </span>value_commitment = ValueCommitmentOpening {
+        <span class="kw">let </span>value_commitment = ValueCommitment {
             value: rng.next_u64(),
             randomness: jubjub::Fr::random(<span class="kw-2">&amp;mut </span>rng),
         };
@@ -1843,7 +1816,7 @@
             <span class="kw">let </span><span class="kw-2">mut </span>cs = TestConstraintSystem::new();
 
             <span class="kw">let </span>instance = Output {
-                value_commitment_opening: <span class="prelude-val">Some</span>(value_commitment.clone()),
+                value_commitment: <span class="prelude-val">Some</span>(value_commitment.clone()),
                 payment_address: <span class="prelude-val">Some</span>(payment_address.clone()),
                 commitment_randomness: <span class="prelude-val">Some</span>(commitment_randomness),
                 esk: <span class="prelude-val">Some</span>(esk),
@@ -1866,7 +1839,8 @@
                 .expect(<span class="string">&quot;should be valid&quot;</span>)
                 .cmu();
 
-            <span class="kw">let </span>expected_value_commitment = value_commitment.commitment().to_affine();
+            <span class="kw">let </span>expected_value_commitment =
+                jubjub::ExtendedPoint::from(value_commitment.commitment()).to_affine();
 
             <span class="kw">let </span>expected_epk =
                 jubjub::ExtendedPoint::from(payment_address.g_d().expect(<span class="string">&quot;should be valid&quot;</span>) * esk)

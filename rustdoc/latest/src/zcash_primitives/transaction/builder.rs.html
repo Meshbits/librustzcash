@@ -859,14 +859,6 @@
 <a href="#859" id="859">859</a>
 <a href="#860" id="860">860</a>
 <a href="#861" id="861">861</a>
-<a href="#862" id="862">862</a>
-<a href="#863" id="863">863</a>
-<a href="#864" id="864">864</a>
-<a href="#865" id="865">865</a>
-<a href="#866" id="866">866</a>
-<a href="#867" id="867">867</a>
-<a href="#868" id="868">868</a>
-<a href="#869" id="869">869</a>
 </pre><pre class="rust"><code><span class="doccomment">//! Structs for building transactions.
 
 </span><span class="kw">use </span>std::cmp::Ordering;
@@ -885,7 +877,7 @@
     legacy::TransparentAddress,
     memo::MemoBytes,
     merkle_tree::MerklePath,
-    sapling::{prover::TxProver, value::NoteValue, Diversifier, Node, Note, PaymentAddress},
+    sapling::{prover::TxProver, Diversifier, Node, Note, PaymentAddress},
     transaction::{
         components::{
             amount::{Amount, BalanceError},
@@ -1123,16 +1115,8 @@
         value: Amount,
         memo: MemoBytes,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), sapling::builder::Error&gt; {
-        <span class="kw">if </span>value.is_negative() {
-            <span class="kw">return </span><span class="prelude-val">Err</span>(sapling::builder::Error::InvalidAmount);
-        }
-        <span class="self">self</span>.sapling_builder.add_output(
-            <span class="kw-2">&amp;mut </span><span class="self">self</span>.rng,
-            ovk,
-            to,
-            NoteValue::from_raw(value.into()),
-            memo,
-        )
+        <span class="self">self</span>.sapling_builder
+            .add_output(<span class="kw-2">&amp;mut </span><span class="self">self</span>.rng, ovk, to, value, memo)
     }
 
     <span class="doccomment">/// Adds a transparent coin to be spent in this transaction.

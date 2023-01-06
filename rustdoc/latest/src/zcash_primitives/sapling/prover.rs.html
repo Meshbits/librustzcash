@@ -137,13 +137,17 @@
 <a href="#137" id="137">137</a>
 <a href="#138" id="138">138</a>
 <a href="#139" id="139">139</a>
+<a href="#140" id="140">140</a>
+<a href="#141" id="141">141</a>
+<a href="#142" id="142">142</a>
+<a href="#143" id="143">143</a>
+<a href="#144" id="144">144</a>
 </pre><pre class="rust"><code><span class="doccomment">//! Abstractions over the proving system and parameters.
 
 </span><span class="kw">use crate</span>::{
     merkle_tree::MerklePath,
     sapling::{
         redjubjub::{PublicKey, Signature},
-        value::ValueCommitment,
         Node,
     },
     transaction::components::{Amount, GROTH_PROOF_SIZE},
@@ -175,7 +179,7 @@
         value: u64,
         anchor: bls12_381::Scalar,
         merkle_path: MerklePath&lt;Node&gt;,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;([u8; GROTH_PROOF_SIZE], ValueCommitment, PublicKey), ()&gt;;
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;([u8; GROTH_PROOF_SIZE], jubjub::ExtendedPoint, PublicKey), ()&gt;;
 
     <span class="doccomment">/// Create the value commitment and proof for a Sapling [`OutputDescription`],
     /// while accumulating its value commitment randomness inside the context for later
@@ -189,7 +193,7 @@
         payment_address: PaymentAddress,
         rcm: jubjub::Fr,
         value: u64,
-    ) -&gt; ([u8; GROTH_PROOF_SIZE], ValueCommitment);
+    ) -&gt; ([u8; GROTH_PROOF_SIZE], jubjub::ExtendedPoint);
 
     <span class="doccomment">/// Create the `bindingSig` for a Sapling transaction. All calls to
     /// [`TxProver::spend_proof`] and [`TxProver::output_proof`] must be completed before
@@ -204,6 +208,7 @@
 
 <span class="attr">#[cfg(any(test, feature = <span class="string">&quot;test-dependencies&quot;</span>))]
 </span><span class="kw">pub mod </span>mock {
+    <span class="kw">use </span>ff::Field;
     <span class="kw">use </span>rand_core::OsRng;
 
     <span class="kw">use crate</span>::{
@@ -211,8 +216,7 @@
         merkle_tree::MerklePath,
         sapling::{
             redjubjub::{PublicKey, Signature},
-            value::{NoteValue, ValueCommitTrapdoor, ValueCommitment},
-            Diversifier, Node, PaymentAddress, ProofGenerationKey, Rseed,
+            Diversifier, Node, PaymentAddress, ProofGenerationKey, Rseed, ValueCommitment,
         },
         transaction::components::{Amount, GROTH_PROOF_SIZE},
     };
@@ -236,12 +240,15 @@
             value: u64,
             _anchor: bls12_381::Scalar,
             _merkle_path: MerklePath&lt;Node&gt;,
-        ) -&gt; <span class="prelude-ty">Result</span>&lt;([u8; GROTH_PROOF_SIZE], ValueCommitment, PublicKey), ()&gt; {
+        ) -&gt; <span class="prelude-ty">Result</span>&lt;([u8; GROTH_PROOF_SIZE], jubjub::ExtendedPoint, PublicKey), ()&gt; {
             <span class="kw">let </span><span class="kw-2">mut </span>rng = OsRng;
 
-            <span class="kw">let </span>value = NoteValue::from_raw(value);
-            <span class="kw">let </span>rcv = ValueCommitTrapdoor::random(<span class="kw-2">&amp;mut </span>rng);
-            <span class="kw">let </span>cv = ValueCommitment::derive(value, rcv);
+            <span class="kw">let </span>cv = ValueCommitment {
+                value,
+                randomness: jubjub::Fr::random(<span class="kw-2">&amp;mut </span>rng),
+            }
+            .commitment()
+            .into();
 
             <span class="kw">let </span>rk =
                 PublicKey(proof_generation_key.ak.into()).randomize(ar, SPENDING_KEY_GENERATOR);
@@ -256,12 +263,15 @@
             _payment_address: PaymentAddress,
             _rcm: jubjub::Fr,
             value: u64,
-        ) -&gt; ([u8; GROTH_PROOF_SIZE], ValueCommitment) {
+        ) -&gt; ([u8; GROTH_PROOF_SIZE], jubjub::ExtendedPoint) {
             <span class="kw">let </span><span class="kw-2">mut </span>rng = OsRng;
 
-            <span class="kw">let </span>value = NoteValue::from_raw(value);
-            <span class="kw">let </span>rcv = ValueCommitTrapdoor::random(<span class="kw-2">&amp;mut </span>rng);
-            <span class="kw">let </span>cv = ValueCommitment::derive(value, rcv);
+            <span class="kw">let </span>cv = ValueCommitment {
+                value,
+                randomness: jubjub::Fr::random(<span class="kw-2">&amp;mut </span>rng),
+            }
+            .commitment()
+            .into();
 
             ([<span class="number">0u8</span>; GROTH_PROOF_SIZE], cv)
         }

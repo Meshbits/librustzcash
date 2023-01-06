@@ -97,17 +97,11 @@
 <a href="#97" id="97">97</a>
 <a href="#98" id="98">98</a>
 <a href="#99" id="99">99</a>
-<a href="#100" id="100">100</a>
-<a href="#101" id="101">101</a>
-<a href="#102" id="102">102</a>
-<a href="#103" id="103">103</a>
-<a href="#104" id="104">104</a>
 </pre><pre class="rust"><code><span class="doccomment">/// CompactBlock is a packaging of ONLY the data from a block that&#39;s needed to:
 ///    1. Detect a payment to your shielded Sapling address
 ///    2. Detect a spend of your shielded Sapling notes
 ///    3. Update your witnesses to generate new Sapling spend proofs.
-</span><span class="attr">#[allow(clippy::derive_partial_eq_without_eq)]
-#[derive(Clone, PartialEq, ::prost::Message)]
+</span><span class="attr">#[derive(Clone, PartialEq, ::prost::Message)]
 </span><span class="kw">pub struct </span>CompactBlock {
     <span class="doccomment">/// the version of this wire format, for storage
     </span><span class="attr">#[prost(uint32, tag = <span class="string">&quot;1&quot;</span>)]
@@ -134,8 +128,7 @@
 <span class="doccomment">/// CompactTx contains the minimum information for a wallet to know if this transaction
 /// is relevant to it (either pays to it or spends from it) via shielded elements
 /// only. This message will not encode a transparent-to-transparent transaction.
-</span><span class="attr">#[allow(clippy::derive_partial_eq_without_eq)]
-#[derive(Clone, PartialEq, ::prost::Message)]
+</span><span class="attr">#[derive(Clone, PartialEq, ::prost::Message)]
 </span><span class="kw">pub struct </span>CompactTx {
     <span class="doccomment">/// Index and hash will allow the receiver to call out to chain
     /// explorers or other data structures to retrieve more information
@@ -163,8 +156,7 @@
 }
 <span class="doccomment">/// CompactSaplingSpend is a Sapling Spend Description as described in 7.3 of the Zcash
 /// protocol specification.
-</span><span class="attr">#[allow(clippy::derive_partial_eq_without_eq)]
-#[derive(Clone, PartialEq, ::prost::Message)]
+</span><span class="attr">#[derive(Clone, PartialEq, ::prost::Message)]
 </span><span class="kw">pub struct </span>CompactSaplingSpend {
     <span class="doccomment">/// nullifier (see the Zcash protocol specification)
     </span><span class="attr">#[prost(bytes = <span class="string">&quot;vec&quot;</span>, tag = <span class="string">&quot;1&quot;</span>)]
@@ -175,8 +167,7 @@
 /// section 7.4 of the Zcash protocol spec:
 /// &lt;https://zips.z.cash/protocol/protocol.pdf#outputencodingandconsensus&gt;
 /// Total size is 116 bytes.
-</span><span class="attr">#[allow(clippy::derive_partial_eq_without_eq)]
-#[derive(Clone, PartialEq, ::prost::Message)]
+</span><span class="attr">#[derive(Clone, PartialEq, ::prost::Message)]
 </span><span class="kw">pub struct </span>CompactSaplingOutput {
     <span class="doccomment">/// note commitment u-coordinate
     </span><span class="attr">#[prost(bytes = <span class="string">&quot;vec&quot;</span>, tag = <span class="string">&quot;1&quot;</span>)]
@@ -190,8 +181,7 @@
 }
 <span class="doccomment">/// &lt;https://github.com/zcash/zips/blob/main/zip-0225.rst#orchard-action-description-orchardaction&gt;
 /// (but not all fields are needed)
-</span><span class="attr">#[allow(clippy::derive_partial_eq_without_eq)]
-#[derive(Clone, PartialEq, ::prost::Message)]
+</span><span class="attr">#[derive(Clone, PartialEq, ::prost::Message)]
 </span><span class="kw">pub struct </span>CompactOrchardAction {
     <span class="doccomment">/// \[32\] The nullifier of the input note
     </span><span class="attr">#[prost(bytes = <span class="string">&quot;vec&quot;</span>, tag = <span class="string">&quot;1&quot;</span>)]

@@ -162,16 +162,17 @@
 <a href="#162" id="162">162</a>
 <a href="#163" id="163">163</a>
 <a href="#164" id="164">164</a>
+<a href="#165" id="165">165</a>
+<a href="#166" id="166">166</a>
 </pre><pre class="rust"><code><span class="kw">use </span>bellman::{gadgets::multipack, groth16::Proof};
 <span class="kw">use </span>bls12_381::Bls12;
 <span class="kw">use </span>group::{Curve, GroupEncoding};
 <span class="kw">use </span>zcash_primitives::{
-    sapling::{
-        redjubjub::{PublicKey, Signature},
-        value::{CommitmentSum, ValueCommitment},
-    },
+    sapling::redjubjub::{PublicKey, Signature},
     transaction::components::Amount,
 };
+
+<span class="kw">use </span><span class="kw">super</span>::compute_value_balance;
 
 <span class="kw">mod </span>single;
 <span class="kw">pub use </span>single::SaplingVerificationContext;
@@ -182,14 +183,14 @@
 <span class="doccomment">/// A context object for verifying the Sapling components of a Zcash transaction.
 </span><span class="kw">struct </span>SaplingVerificationContextInner {
     <span class="comment">// (sum of the Spend value commitments) - (sum of the Output value commitments)
-    </span>cv_sum: CommitmentSum,
+    </span>cv_sum: jubjub::ExtendedPoint,
 }
 
 <span class="kw">impl </span>SaplingVerificationContextInner {
     <span class="doccomment">/// Construct a new context to be used with a single transaction.
     </span><span class="kw">fn </span>new() -&gt; <span class="self">Self </span>{
         SaplingVerificationContextInner {
-            cv_sum: CommitmentSum::zero(),
+            cv_sum: jubjub::ExtendedPoint::identity(),
         }
     }
 
@@ -198,21 +199,18 @@
     </span><span class="attr">#[allow(clippy::too_many_arguments)]
     </span><span class="kw">fn </span>check_spend&lt;C&gt;(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
-        cv: <span class="kw-2">&amp;</span>ValueCommitment,
+        cv: jubjub::ExtendedPoint,
         anchor: bls12_381::Scalar,
         nullifier: <span class="kw-2">&amp;</span>[u8; <span class="number">32</span>],
-        rk: <span class="kw-2">&amp;</span>PublicKey,
+        rk: PublicKey,
         sighash_value: <span class="kw-2">&amp;</span>[u8; <span class="number">32</span>],
-        spend_auth_sig: <span class="kw-2">&amp;</span>Signature,
+        spend_auth_sig: Signature,
         zkproof: Proof&lt;Bls12&gt;,
         verifier_ctx: <span class="kw-2">&amp;mut </span>C,
-        spend_auth_sig_verifier: <span class="kw">impl </span>FnOnce(<span class="kw-2">&amp;mut </span>C, <span class="kw-2">&amp;</span>PublicKey, [u8; <span class="number">64</span>], <span class="kw-2">&amp;</span>Signature) -&gt; bool,
+        spend_auth_sig_verifier: <span class="kw">impl </span>FnOnce(<span class="kw-2">&amp;mut </span>C, PublicKey, [u8; <span class="number">64</span>], Signature) -&gt; bool,
         proof_verifier: <span class="kw">impl </span>FnOnce(<span class="kw-2">&amp;mut </span>C, Proof&lt;Bls12&gt;, [bls12_381::Scalar; <span class="number">7</span>]) -&gt; bool,
     ) -&gt; bool {
-        <span class="comment">// The &quot;cv is not small order&quot; happens when a SpendDescription is deserialized.
-        // This happens when transactions or blocks are received over the network, or when
-        // mined blocks are introduced via the `submitblock` RPC method on full nodes.
-        </span><span class="kw">if </span>rk.<span class="number">0</span>.is_small_order().into() {
+        <span class="kw">if </span>(cv.is_small_order() | rk.<span class="number">0</span>.is_small_order()).into() {
             <span class="kw">return </span><span class="bool-val">false</span>;
         }
 
@@ -242,7 +240,7 @@
             public_input[<span class="number">1</span>] = v;
         }
         {
-            <span class="kw">let </span>affine = cv.as_inner().to_affine();
+            <span class="kw">let </span>affine = cv.to_affine();
             <span class="kw">let </span>(u, v) = (affine.get_u(), affine.get_v());
             public_input[<span class="number">2</span>] = u;
             public_input[<span class="number">3</span>] = v;
@@ -268,16 +266,13 @@
     /// accumulating its value commitment inside the context for later use.
     </span><span class="kw">fn </span>check_output(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
-        cv: <span class="kw-2">&amp;</span>ValueCommitment,
+        cv: jubjub::ExtendedPoint,
         cmu: bls12_381::Scalar,
         epk: jubjub::ExtendedPoint,
         zkproof: Proof&lt;Bls12&gt;,
         proof_verifier: <span class="kw">impl </span>FnOnce(Proof&lt;Bls12&gt;, [bls12_381::Scalar; <span class="number">5</span>]) -&gt; bool,
     ) -&gt; bool {
-        <span class="comment">// The &quot;cv is not small order&quot; happens when an OutputDescription is deserialized.
-        // This happens when transactions or blocks are received over the network, or when
-        // mined blocks are introduced via the `submitblock` RPC method on full nodes.
-        </span><span class="kw">if </span>epk.is_small_order().into() {
+        <span class="kw">if </span>(cv.is_small_order() | epk.is_small_order()).into() {
             <span class="kw">return </span><span class="bool-val">false</span>;
         }
 
@@ -287,7 +282,7 @@
         <span class="comment">// Construct public input for circuit
         </span><span class="kw">let </span><span class="kw-2">mut </span>public_input = [bls12_381::Scalar::zero(); <span class="number">5</span>];
         {
-            <span class="kw">let </span>affine = cv.as_inner().to_affine();
+            <span class="kw">let </span>affine = cv.to_affine();
             <span class="kw">let </span>(u, v) = (affine.get_u(), affine.get_v());
             public_input[<span class="number">0</span>] = u;
             public_input[<span class="number">1</span>] = v;
@@ -314,8 +309,17 @@
         binding_sig: Signature,
         binding_sig_verifier: <span class="kw">impl </span>FnOnce(PublicKey, [u8; <span class="number">64</span>], Signature) -&gt; bool,
     ) -&gt; bool {
-        <span class="comment">// Compute the final bvk.
-        </span><span class="kw">let </span>bvk = <span class="self">self</span>.cv_sum.into_bvk(value_balance);
+        <span class="comment">// Obtain current cv_sum from the context
+        </span><span class="kw">let </span><span class="kw-2">mut </span>bvk = PublicKey(<span class="self">self</span>.cv_sum);
+
+        <span class="comment">// Compute value balance
+        </span><span class="kw">let </span>value_balance = <span class="kw">match </span>compute_value_balance(value_balance) {
+            <span class="prelude-val">Some</span>(a) =&gt; a,
+            <span class="prelude-val">None </span>=&gt; <span class="kw">return </span><span class="bool-val">false</span>,
+        };
+
+        <span class="comment">// Subtract value_balance from current cv_sum to get final bvk
+        </span>bvk.<span class="number">0 </span>-= value_balance;
 
         <span class="comment">// Compute the signature&#39;s message for bvk/binding_sig
         </span><span class="kw">let </span><span class="kw-2">mut </span>data_to_be_signed = [<span class="number">0u8</span>; <span class="number">64</span>];

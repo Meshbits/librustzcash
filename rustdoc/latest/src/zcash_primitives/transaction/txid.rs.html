@@ -530,6 +530,7 @@
 <a href="#530" id="530">530</a>
 <a href="#531" id="531">531</a>
 <a href="#532" id="532">532</a>
+<a href="#533" id="533">533</a>
 </pre><pre class="rust"><code><span class="kw">use </span>std::borrow::Borrow;
 <span class="kw">use </span>std::convert::TryFrom;
 <span class="kw">use </span>std::io::Write;
@@ -537,6 +538,7 @@
 <span class="kw">use </span>blake2b_simd::{Hash <span class="kw">as </span>Blake2bHash, Params, State};
 <span class="kw">use </span>byteorder::{LittleEndian, WriteBytesExt};
 <span class="kw">use </span>ff::PrimeField;
+<span class="kw">use </span>group::GroupEncoding;
 <span class="kw">use </span>orchard::bundle::{<span class="self">self </span><span class="kw">as </span>orchard};
 
 <span class="kw">use </span><span class="kw">crate</span>::consensus::{BlockHeight, BranchId};
@@ -677,11 +679,11 @@
         <span class="kw">let </span><span class="kw-2">mut </span>nh = hasher(ZCASH_SAPLING_SPENDS_NONCOMPACT_HASH_PERSONALIZATION);
         <span class="kw">for </span>s_spend <span class="kw">in </span>shielded_spends {
             <span class="comment">// we build the hash of nullifiers separately for compact blocks.
-            </span>ch.write_all(s_spend.nullifier().as_ref()).unwrap();
+            </span>ch.write_all(s_spend.nullifier.as_ref()).unwrap();
 
-            nh.write_all(<span class="kw-2">&amp;</span>s_spend.cv().to_bytes()).unwrap();
-            nh.write_all(<span class="kw-2">&amp;</span>s_spend.anchor().to_repr()).unwrap();
-            s_spend.rk().write(<span class="kw-2">&amp;mut </span>nh).unwrap();
+            nh.write_all(<span class="kw-2">&amp;</span>s_spend.cv.to_bytes()).unwrap();
+            nh.write_all(<span class="kw-2">&amp;</span>s_spend.anchor.to_repr()).unwrap();
+            s_spend.rk.write(<span class="kw-2">&amp;mut </span>nh).unwrap();
         }
 
         <span class="kw">let </span>compact_digest = ch.finalize();
@@ -707,15 +709,15 @@
         <span class="kw">let </span><span class="kw-2">mut </span>mh = hasher(ZCASH_SAPLING_OUTPUTS_MEMOS_HASH_PERSONALIZATION);
         <span class="kw">let </span><span class="kw-2">mut </span>nh = hasher(ZCASH_SAPLING_OUTPUTS_NONCOMPACT_HASH_PERSONALIZATION);
         <span class="kw">for </span>s_out <span class="kw">in </span>shielded_outputs {
-            ch.write_all(s_out.cmu().to_repr().as_ref()).unwrap();
-            ch.write_all(s_out.ephemeral_key().as_ref()).unwrap();
-            ch.write_all(<span class="kw-2">&amp;</span>s_out.enc_ciphertext()[..<span class="number">52</span>]).unwrap();
+            ch.write_all(s_out.cmu.to_repr().as_ref()).unwrap();
+            ch.write_all(s_out.ephemeral_key.as_ref()).unwrap();
+            ch.write_all(<span class="kw-2">&amp;</span>s_out.enc_ciphertext[..<span class="number">52</span>]).unwrap();
 
-            mh.write_all(<span class="kw-2">&amp;</span>s_out.enc_ciphertext()[<span class="number">52</span>..<span class="number">564</span>]).unwrap();
+            mh.write_all(<span class="kw-2">&amp;</span>s_out.enc_ciphertext[<span class="number">52</span>..<span class="number">564</span>]).unwrap();
 
-            nh.write_all(<span class="kw-2">&amp;</span>s_out.cv().to_bytes()).unwrap();
-            nh.write_all(<span class="kw-2">&amp;</span>s_out.enc_ciphertext()[<span class="number">564</span>..]).unwrap();
-            nh.write_all(<span class="kw-2">&amp;</span>s_out.out_ciphertext()[..]).unwrap();
+            nh.write_all(<span class="kw-2">&amp;</span>s_out.cv.to_bytes()).unwrap();
+            nh.write_all(<span class="kw-2">&amp;</span>s_out.enc_ciphertext[<span class="number">564</span>..]).unwrap();
+            nh.write_all(<span class="kw-2">&amp;</span>s_out.out_ciphertext).unwrap();
         }
 
         h.write_all(ch.finalize().as_bytes()).unwrap();
@@ -784,14 +786,14 @@
 <span class="doccomment">/// Implements [ZIP 244 section T.3](https://zips.z.cash/zip-0244#t-3-sapling-digest)
 </span><span class="kw">fn </span>hash_sapling_txid_data&lt;A: sapling::Authorization&gt;(bundle: <span class="kw-2">&amp;</span>sapling::Bundle&lt;A&gt;) -&gt; Blake2bHash {
     <span class="kw">let </span><span class="kw-2">mut </span>h = hasher(ZCASH_SAPLING_HASH_PERSONALIZATION);
-    <span class="kw">if </span>!(bundle.shielded_spends().is_empty() &amp;&amp; bundle.shielded_outputs().is_empty()) {
-        h.write_all(hash_sapling_spends(bundle.shielded_spends()).as_bytes())
+    <span class="kw">if </span>!(bundle.shielded_spends.is_empty() &amp;&amp; bundle.shielded_outputs.is_empty()) {
+        h.write_all(hash_sapling_spends(<span class="kw-2">&amp;</span>bundle.shielded_spends).as_bytes())
             .unwrap();
 
-        h.write_all(hash_sapling_outputs(bundle.shielded_outputs()).as_bytes())
+        h.write_all(hash_sapling_outputs(<span class="kw-2">&amp;</span>bundle.shielded_outputs).as_bytes())
             .unwrap();
 
-        h.write_all(<span class="kw-2">&amp;</span>bundle.value_balance().to_i64_le_bytes())
+        h.write_all(<span class="kw-2">&amp;</span>bundle.value_balance.to_i64_le_bytes())
             .unwrap();
     }
     h.finalize()
@@ -996,19 +998,19 @@
     ) -&gt; Blake2bHash {
         <span class="kw">let </span><span class="kw-2">mut </span>h = hasher(ZCASH_SAPLING_SIGS_HASH_PERSONALIZATION);
         <span class="kw">if let </span><span class="prelude-val">Some</span>(bundle) = sapling_bundle {
-            <span class="kw">for </span>spend <span class="kw">in </span>bundle.shielded_spends() {
-                h.write_all(spend.zkproof()).unwrap();
+            <span class="kw">for </span>spend <span class="kw">in </span><span class="kw-2">&amp;</span>bundle.shielded_spends {
+                h.write_all(<span class="kw-2">&amp;</span>spend.zkproof).unwrap();
             }
 
-            <span class="kw">for </span>spend <span class="kw">in </span>bundle.shielded_spends() {
-                spend.spend_auth_sig().write(<span class="kw-2">&amp;mut </span>h).unwrap();
+            <span class="kw">for </span>spend <span class="kw">in </span><span class="kw-2">&amp;</span>bundle.shielded_spends {
+                spend.spend_auth_sig.write(<span class="kw-2">&amp;mut </span>h).unwrap();
             }
 
-            <span class="kw">for </span>output <span class="kw">in </span>bundle.shielded_outputs() {
-                h.write_all(output.zkproof()).unwrap();
+            <span class="kw">for </span>output <span class="kw">in </span><span class="kw-2">&amp;</span>bundle.shielded_outputs {
+                h.write_all(<span class="kw-2">&amp;</span>output.zkproof).unwrap();
             }
 
-            bundle.authorization().binding_sig.write(<span class="kw-2">&amp;mut </span>h).unwrap();
+            bundle.authorization.binding_sig.write(<span class="kw-2">&amp;mut </span>h).unwrap();
         }
         h.finalize()
     }

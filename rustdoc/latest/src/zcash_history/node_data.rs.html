@@ -502,7 +502,7 @@
 
     <span class="macro">quickcheck! </span>{
         <span class="kw">fn </span>serialization_round_trip(node_data: NodeData) -&gt; TestResult {
-            TestResult::from_bool(NodeData::from_bytes(<span class="number">0</span>, node_data.to_bytes()).unwrap() == node_data)
+            TestResult::from_bool(NodeData::from_bytes(<span class="number">0</span>, <span class="kw-2">&amp;</span>node_data.to_bytes()).unwrap() == node_data)
         }
     }
 }

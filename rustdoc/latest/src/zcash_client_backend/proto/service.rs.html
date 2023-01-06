@@ -625,29 +625,9 @@
 <a href="#625" id="625">625</a>
 <a href="#626" id="626">626</a>
 <a href="#627" id="627">627</a>
-<a href="#628" id="628">628</a>
-<a href="#629" id="629">629</a>
-<a href="#630" id="630">630</a>
-<a href="#631" id="631">631</a>
-<a href="#632" id="632">632</a>
-<a href="#633" id="633">633</a>
-<a href="#634" id="634">634</a>
-<a href="#635" id="635">635</a>
-<a href="#636" id="636">636</a>
-<a href="#637" id="637">637</a>
-<a href="#638" id="638">638</a>
-<a href="#639" id="639">639</a>
-<a href="#640" id="640">640</a>
-<a href="#641" id="641">641</a>
-<a href="#642" id="642">642</a>
-<a href="#643" id="643">643</a>
-<a href="#644" id="644">644</a>
-<a href="#645" id="645">645</a>
-<a href="#646" id="646">646</a>
 </pre><pre class="rust"><code><span class="doccomment">/// A BlockID message contains identifiers to select a block: a height or a
 /// hash. Specification by hash is not implemented, but may be in the future.
-</span><span class="attr">#[allow(clippy::derive_partial_eq_without_eq)]
-#[derive(Clone, PartialEq, ::prost::Message)]
+</span><span class="attr">#[derive(Clone, PartialEq, ::prost::Message)]
 </span><span class="kw">pub struct </span>BlockId {
     <span class="attr">#[prost(uint64, tag = <span class="string">&quot;1&quot;</span>)]
     </span><span class="kw">pub </span>height: u64,
@@ -656,8 +636,7 @@
 }
 <span class="doccomment">/// BlockRange specifies a series of blocks from start to end inclusive.
 /// Both BlockIDs must be heights; specification by hash is not yet supported.
-</span><span class="attr">#[allow(clippy::derive_partial_eq_without_eq)]
-#[derive(Clone, PartialEq, ::prost::Message)]
+</span><span class="attr">#[derive(Clone, PartialEq, ::prost::Message)]
 </span><span class="kw">pub struct </span>BlockRange {
     <span class="attr">#[prost(message, optional, tag = <span class="string">&quot;1&quot;</span>)]
     </span><span class="kw">pub </span>start: ::core::option::Option&lt;BlockId&gt;,
@@ -667,8 +646,7 @@
 <span class="doccomment">/// A TxFilter contains the information needed to identify a particular
 /// transaction: either a block and an index, or a direct transaction hash.
 /// Currently, only specification by hash is supported.
-</span><span class="attr">#[allow(clippy::derive_partial_eq_without_eq)]
-#[derive(Clone, PartialEq, ::prost::Message)]
+</span><span class="attr">#[derive(Clone, PartialEq, ::prost::Message)]
 </span><span class="kw">pub struct </span>TxFilter {
     <span class="doccomment">/// block identifier, height or hash
     </span><span class="attr">#[prost(message, optional, tag = <span class="string">&quot;1&quot;</span>)]
@@ -683,8 +661,7 @@
 <span class="doccomment">/// RawTransaction contains the complete transaction data. It also optionally includes
 /// the block height in which the transaction was included, or, when returned
 /// by GetMempoolStream(), the latest block height.
-</span><span class="attr">#[allow(clippy::derive_partial_eq_without_eq)]
-#[derive(Clone, PartialEq, ::prost::Message)]
+</span><span class="attr">#[derive(Clone, PartialEq, ::prost::Message)]
 </span><span class="kw">pub struct </span>RawTransaction {
     <span class="doccomment">/// exact data returned by Zcash &#39;getrawtransaction&#39;
     </span><span class="attr">#[prost(bytes = <span class="string">&quot;vec&quot;</span>, tag = <span class="string">&quot;1&quot;</span>)]
@@ -696,8 +673,7 @@
 <span class="doccomment">/// A SendResponse encodes an error code and a string. It is currently used
 /// only by SendTransaction(). If error code is zero, the operation was
 /// successful; if non-zero, it and the message specify the failure.
-</span><span class="attr">#[allow(clippy::derive_partial_eq_without_eq)]
-#[derive(Clone, PartialEq, ::prost::Message)]
+</span><span class="attr">#[derive(Clone, PartialEq, ::prost::Message)]
 </span><span class="kw">pub struct </span>SendResponse {
     <span class="attr">#[prost(int32, tag = <span class="string">&quot;1&quot;</span>)]
     </span><span class="kw">pub </span>error_code: i32,
@@ -705,17 +681,14 @@
     </span><span class="kw">pub </span>error_message: ::prost::alloc::string::String,
 }
 <span class="doccomment">/// Chainspec is a placeholder to allow specification of a particular chain fork.
-</span><span class="attr">#[allow(clippy::derive_partial_eq_without_eq)]
-#[derive(Clone, PartialEq, ::prost::Message)]
+</span><span class="attr">#[derive(Clone, PartialEq, ::prost::Message)]
 </span><span class="kw">pub struct </span>ChainSpec {}
 <span class="doccomment">/// Empty is for gRPCs that take no arguments, currently only GetLightdInfo.
-</span><span class="attr">#[allow(clippy::derive_partial_eq_without_eq)]
-#[derive(Clone, PartialEq, ::prost::Message)]
+</span><span class="attr">#[derive(Clone, PartialEq, ::prost::Message)]
 </span><span class="kw">pub struct </span>Empty {}
 <span class="doccomment">/// LightdInfo returns various information about this lightwalletd instance
 /// and the state of the blockchain.
-</span><span class="attr">#[allow(clippy::derive_partial_eq_without_eq)]
-#[derive(Clone, PartialEq, ::prost::Message)]
+</span><span class="attr">#[derive(Clone, PartialEq, ::prost::Message)]
 </span><span class="kw">pub struct </span>LightdInfo {
     <span class="attr">#[prost(string, tag = <span class="string">&quot;1&quot;</span>)]
     </span><span class="kw">pub </span>version: ::prost::alloc::string::String,
@@ -756,8 +729,7 @@
 }
 <span class="doccomment">/// TransparentAddressBlockFilter restricts the results to the given address
 /// or block range.
-</span><span class="attr">#[allow(clippy::derive_partial_eq_without_eq)]
-#[derive(Clone, PartialEq, ::prost::Message)]
+</span><span class="attr">#[derive(Clone, PartialEq, ::prost::Message)]
 </span><span class="kw">pub struct </span>TransparentAddressBlockFilter {
     <span class="doccomment">/// t-address
     </span><span class="attr">#[prost(string, tag = <span class="string">&quot;1&quot;</span>)]
@@ -769,8 +741,7 @@
 <span class="doccomment">/// Duration is currently used only for testing, so that the Ping rpc
 /// can simulate a delay, to create many simultaneous connections. Units
 /// are microseconds.
-</span><span class="attr">#[allow(clippy::derive_partial_eq_without_eq)]
-#[derive(Clone, PartialEq, ::prost::Message)]
+</span><span class="attr">#[derive(Clone, PartialEq, ::prost::Message)]
 </span><span class="kw">pub struct </span>Duration {
     <span class="attr">#[prost(int64, tag = <span class="string">&quot;1&quot;</span>)]
     </span><span class="kw">pub </span>interval_us: i64,
@@ -778,41 +749,35 @@
 <span class="doccomment">/// PingResponse is used to indicate concurrency, how many Ping rpcs
 /// are executing upon entry and upon exit (after the delay).
 /// This rpc is used for testing only.
-</span><span class="attr">#[allow(clippy::derive_partial_eq_without_eq)]
-#[derive(Clone, PartialEq, ::prost::Message)]
+</span><span class="attr">#[derive(Clone, PartialEq, ::prost::Message)]
 </span><span class="kw">pub struct </span>PingResponse {
     <span class="attr">#[prost(int64, tag = <span class="string">&quot;1&quot;</span>)]
     </span><span class="kw">pub </span>entry: i64,
     <span class="attr">#[prost(int64, tag = <span class="string">&quot;2&quot;</span>)]
     </span><span class="kw">pub </span>exit: i64,
 }
-<span class="attr">#[allow(clippy::derive_partial_eq_without_eq)]
-#[derive(Clone, PartialEq, ::prost::Message)]
+<span class="attr">#[derive(Clone, PartialEq, ::prost::Message)]
 </span><span class="kw">pub struct </span>Address {
     <span class="attr">#[prost(string, tag = <span class="string">&quot;1&quot;</span>)]
     </span><span class="kw">pub </span>address: ::prost::alloc::string::String,
 }
-<span class="attr">#[allow(clippy::derive_partial_eq_without_eq)]
-#[derive(Clone, PartialEq, ::prost::Message)]
+<span class="attr">#[derive(Clone, PartialEq, ::prost::Message)]
 </span><span class="kw">pub struct </span>AddressList {
     <span class="attr">#[prost(string, repeated, tag = <span class="string">&quot;1&quot;</span>)]
     </span><span class="kw">pub </span>addresses: ::prost::alloc::vec::Vec&lt;::prost::alloc::string::String&gt;,
 }
-<span class="attr">#[allow(clippy::derive_partial_eq_without_eq)]
-#[derive(Clone, PartialEq, ::prost::Message)]
+<span class="attr">#[derive(Clone, PartialEq, ::prost::Message)]
 </span><span class="kw">pub struct </span>Balance {
     <span class="attr">#[prost(int64, tag = <span class="string">&quot;1&quot;</span>)]
     </span><span class="kw">pub </span>value_zat: i64,
 }
-<span class="attr">#[allow(clippy::derive_partial_eq_without_eq)]
-#[derive(Clone, PartialEq, ::prost::Message)]
+<span class="attr">#[derive(Clone, PartialEq, ::prost::Message)]
 </span><span class="kw">pub struct </span>Exclude {
     <span class="attr">#[prost(bytes = <span class="string">&quot;vec&quot;</span>, repeated, tag = <span class="string">&quot;1&quot;</span>)]
     </span><span class="kw">pub </span>txid: ::prost::alloc::vec::Vec&lt;::prost::alloc::vec::Vec&lt;u8&gt;&gt;,
 }
 <span class="doccomment">/// The TreeState is derived from the Zcash z_gettreestate rpc.
-</span><span class="attr">#[allow(clippy::derive_partial_eq_without_eq)]
-#[derive(Clone, PartialEq, ::prost::Message)]
+</span><span class="attr">#[derive(Clone, PartialEq, ::prost::Message)]
 </span><span class="kw">pub struct </span>TreeState {
     <span class="doccomment">/// &quot;main&quot; or &quot;test&quot;
     </span><span class="attr">#[prost(string, tag = <span class="string">&quot;1&quot;</span>)]
@@ -835,8 +800,7 @@
 }
 <span class="doccomment">/// Results are sorted by height, which makes it easy to issue another
 /// request that picks up from where the previous left off.
-</span><span class="attr">#[allow(clippy::derive_partial_eq_without_eq)]
-#[derive(Clone, PartialEq, ::prost::Message)]
+</span><span class="attr">#[derive(Clone, PartialEq, ::prost::Message)]
 </span><span class="kw">pub struct </span>GetAddressUtxosArg {
     <span class="attr">#[prost(string, repeated, tag = <span class="string">&quot;1&quot;</span>)]
     </span><span class="kw">pub </span>addresses: ::prost::alloc::vec::Vec&lt;::prost::alloc::string::String&gt;,
@@ -846,8 +810,7 @@
     </span><span class="attr">#[prost(uint32, tag = <span class="string">&quot;3&quot;</span>)]
     </span><span class="kw">pub </span>max_entries: u32,
 }
-<span class="attr">#[allow(clippy::derive_partial_eq_without_eq)]
-#[derive(Clone, PartialEq, ::prost::Message)]
+<span class="attr">#[derive(Clone, PartialEq, ::prost::Message)]
 </span><span class="kw">pub struct </span>GetAddressUtxosReply {
     <span class="attr">#[prost(string, tag = <span class="string">&quot;6&quot;</span>)]
     </span><span class="kw">pub </span>address: ::prost::alloc::string::String,
@@ -862,8 +825,7 @@
     <span class="attr">#[prost(uint64, tag = <span class="string">&quot;5&quot;</span>)]
     </span><span class="kw">pub </span>height: u64,
 }
-<span class="attr">#[allow(clippy::derive_partial_eq_without_eq)]
-#[derive(Clone, PartialEq, ::prost::Message)]
+<span class="attr">#[derive(Clone, PartialEq, ::prost::Message)]
 </span><span class="kw">pub struct </span>GetAddressUtxosReplyList {
     <span class="attr">#[prost(message, repeated, tag = <span class="string">&quot;1&quot;</span>)]
     </span><span class="kw">pub </span>address_utxos: ::prost::alloc::vec::Vec&lt;GetAddressUtxosReply&gt;,

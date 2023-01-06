@@ -507,6 +507,7 @@
 <a href="#507" id="507">507</a>
 <a href="#508" id="508">508</a>
 <a href="#509" id="509">509</a>
+<a href="#510" id="510">510</a>
 </pre><pre class="rust"><code><span class="doccomment">//! *Zcash circuits and proofs.*
 //!
 //! `zcash_proofs` contains the zk-SNARK circuits used by Zcash, and the APIs for creating
@@ -872,8 +873,9 @@
     <span class="comment">// We only deserialize the verifying key for the Sprout parameters, which
     // appears at the beginning of the parameter file. The rest is loaded
     // during proving time.
-    </span><span class="kw">let </span>sprout_vk = sprout_fs.as_mut().map(|fs| {
-        VerifyingKey::&lt;Bls12&gt;::read(fs).expect(<span class="string">&quot;couldn&#39;t deserialize Sprout Groth16 verifying key&quot;</span>)
+    </span><span class="kw">let </span>sprout_vk = sprout_fs.as_mut().map(|<span class="kw-2">mut </span>fs| {
+        VerifyingKey::&lt;Bls12&gt;::read(<span class="kw-2">&amp;mut </span>fs)
+            .expect(<span class="string">&quot;couldn&#39;t deserialize Sprout Groth16 verifying key&quot;</span>)
     });
 
     <span class="comment">// There is extra stuff (the transcript) at the end of the parameter file which is

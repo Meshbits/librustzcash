@@ -1145,10 +1145,6 @@
 <a href="#1145" id="1145">1145</a>
 <a href="#1146" id="1146">1146</a>
 <a href="#1147" id="1147">1147</a>
-<a href="#1148" id="1148">1148</a>
-<a href="#1149" id="1149">1149</a>
-<a href="#1150" id="1150">1150</a>
-<a href="#1151" id="1151">1151</a>
 </pre><pre class="rust"><code><span class="doccomment">//! Structs and methods for handling Zcash transactions.
 </span><span class="kw">pub mod </span>builder;
 <span class="kw">pub mod </span>components;
@@ -1569,7 +1565,7 @@
             )<span class="question-mark">?</span>,
             <span class="self">self</span>.sapling_bundle
                 .as_ref()
-                .map_or_else(Amount::zero, |b| <span class="kw-2">*</span>b.value_balance()),
+                .map_or_else(Amount::zero, |b| b.value_balance),
             <span class="self">self</span>.orchard_bundle
                 .as_ref()
                 .map_or_else(Amount::zero, |b| <span class="kw-2">*</span>b.value_balance()),
@@ -1664,7 +1660,7 @@
     <span class="kw">pub fn </span>sapling_value_balance(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Amount {
         <span class="self">self</span>.sapling_bundle
             .as_ref()
-            .map_or(Amount::zero(), |b| <span class="kw-2">*</span>b.value_balance())
+            .map_or(Amount::zero(), |b| b.value_balance)
     }
 }
 
@@ -1799,13 +1795,11 @@
                 expiry_height,
                 transparent_bundle,
                 sprout_bundle,
-                sapling_bundle: binding_sig.map(|binding_sig| {
-                    sapling::Bundle::from_parts(
-                        shielded_spends,
-                        shielded_outputs,
-                        value_balance,
-                        sapling::Authorized { binding_sig },
-                    )
+                sapling_bundle: binding_sig.map(|binding_sig| sapling::Bundle {
+                    value_balance,
+                    shielded_spends,
+                    shielded_outputs,
+                    authorization: sapling::Authorized { binding_sig },
                 }),
                 orchard_bundle: <span class="prelude-val">None</span>,
                 <span class="attr">#[cfg(feature = <span class="string">&quot;zfuture&quot;</span>)]
@@ -1932,13 +1926,11 @@
             .map(|(od_5, zkproof)| od_5.into_output_description(zkproof))
             .collect();
 
-        <span class="prelude-val">Ok</span>(binding_sig.map(|binding_sig| {
-            sapling::Bundle::from_parts(
-                shielded_spends,
-                shielded_outputs,
-                value_balance,
-                sapling::Authorized { binding_sig },
-            )
+        <span class="prelude-val">Ok</span>(binding_sig.map(|binding_sig| sapling::Bundle {
+            value_balance,
+            shielded_spends,
+            shielded_outputs,
+            authorization: sapling::Authorized { binding_sig },
         }))
     }
 
@@ -1982,21 +1974,21 @@
                 <span class="kw-2">&amp;</span><span class="self">self
                     </span>.sapling_bundle
                     .as_ref()
-                    .map_or(Amount::zero(), |b| <span class="kw-2">*</span>b.value_balance())
+                    .map_or(Amount::zero(), |b| b.value_balance)
                     .to_i64_le_bytes(),
             )<span class="question-mark">?</span>;
             Vector::write(
                 <span class="kw-2">&amp;mut </span>writer,
                 <span class="self">self</span>.sapling_bundle
                     .as_ref()
-                    .map_or(<span class="kw-2">&amp;</span>[], |b| b.shielded_spends()),
+                    .map_or(<span class="kw-2">&amp;</span>[], |b| <span class="kw-2">&amp;</span>b.shielded_spends),
                 |w, e| e.write_v4(w),
             )<span class="question-mark">?</span>;
             Vector::write(
                 <span class="kw-2">&amp;mut </span>writer,
                 <span class="self">self</span>.sapling_bundle
                     .as_ref()
-                    .map_or(<span class="kw-2">&amp;</span>[], |b| b.shielded_outputs()),
+                    .map_or(<span class="kw-2">&amp;</span>[], |b| <span class="kw-2">&amp;</span>b.shielded_outputs),
                 |w, e| e.write_v4(w),
             )<span class="question-mark">?</span>;
         } <span class="kw">else if </span><span class="self">self</span>.sapling_bundle.is_some() {
@@ -2018,7 +2010,7 @@
 
         <span class="kw">if </span><span class="self">self</span>.version.has_sapling() {
             <span class="kw">if let </span><span class="prelude-val">Some</span>(bundle) = <span class="self">self</span>.sapling_bundle.as_ref() {
-                bundle.authorization().binding_sig.write(<span class="kw-2">&amp;mut </span>writer)<span class="question-mark">?</span>;
+                bundle.authorization.binding_sig.write(<span class="kw-2">&amp;mut </span>writer)<span class="question-mark">?</span>;
             }
         }
 
@@ -2070,40 +2062,40 @@
 
     <span class="kw">pub fn </span>write_v5_sapling&lt;W: Write&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="kw-2">mut </span>writer: W) -&gt; io::Result&lt;()&gt; {
         <span class="kw">if let </span><span class="prelude-val">Some</span>(bundle) = <span class="kw-2">&amp;</span><span class="self">self</span>.sapling_bundle {
-            Vector::write(<span class="kw-2">&amp;mut </span>writer, bundle.shielded_spends(), |w, e| {
+            Vector::write(<span class="kw-2">&amp;mut </span>writer, <span class="kw-2">&amp;</span>bundle.shielded_spends, |w, e| {
                 e.write_v5_without_witness_data(w)
             })<span class="question-mark">?</span>;
 
-            Vector::write(<span class="kw-2">&amp;mut </span>writer, bundle.shielded_outputs(), |w, e| {
+            Vector::write(<span class="kw-2">&amp;mut </span>writer, <span class="kw-2">&amp;</span>bundle.shielded_outputs, |w, e| {
                 e.write_v5_without_proof(w)
             })<span class="question-mark">?</span>;
 
-            <span class="kw">if </span>!(bundle.shielded_spends().is_empty() &amp;&amp; bundle.shielded_outputs().is_empty()) {
-                writer.write_all(<span class="kw-2">&amp;</span>bundle.value_balance().to_i64_le_bytes())<span class="question-mark">?</span>;
+            <span class="kw">if </span>!(bundle.shielded_spends.is_empty() &amp;&amp; bundle.shielded_outputs.is_empty()) {
+                writer.write_all(<span class="kw-2">&amp;</span>bundle.value_balance.to_i64_le_bytes())<span class="question-mark">?</span>;
             }
-            <span class="kw">if </span>!bundle.shielded_spends().is_empty() {
-                writer.write_all(bundle.shielded_spends()[<span class="number">0</span>].anchor().to_repr().as_ref())<span class="question-mark">?</span>;
+            <span class="kw">if </span>!bundle.shielded_spends.is_empty() {
+                writer.write_all(bundle.shielded_spends[<span class="number">0</span>].anchor.to_repr().as_ref())<span class="question-mark">?</span>;
             }
 
             Array::write(
                 <span class="kw-2">&amp;mut </span>writer,
-                bundle.shielded_spends().iter().map(|s| <span class="kw-2">&amp;</span>s.zkproof()[..]),
+                bundle.shielded_spends.iter().map(|s| s.zkproof),
                 |w, e| w.write_all(e),
             )<span class="question-mark">?</span>;
             Array::write(
                 <span class="kw-2">&amp;mut </span>writer,
-                bundle.shielded_spends().iter().map(|s| s.spend_auth_sig()),
+                bundle.shielded_spends.iter().map(|s| s.spend_auth_sig),
                 |w, e| e.write(w),
             )<span class="question-mark">?</span>;
 
             Array::write(
                 <span class="kw-2">&amp;mut </span>writer,
-                bundle.shielded_outputs().iter().map(|s| <span class="kw-2">&amp;</span>s.zkproof()[..]),
+                bundle.shielded_outputs.iter().map(|s| s.zkproof),
                 |w, e| w.write_all(e),
             )<span class="question-mark">?</span>;
 
-            <span class="kw">if </span>!(bundle.shielded_spends().is_empty() &amp;&amp; bundle.shielded_outputs().is_empty()) {
-                bundle.authorization().binding_sig.write(<span class="kw-2">&amp;mut </span>writer)<span class="question-mark">?</span>;
+            <span class="kw">if </span>!(bundle.shielded_spends.is_empty() &amp;&amp; bundle.shielded_outputs.is_empty()) {
+                bundle.authorization.binding_sig.write(<span class="kw-2">&amp;mut </span>writer)<span class="question-mark">?</span>;
             }
         } <span class="kw">else </span>{
             CompactSize::write(<span class="kw-2">&amp;mut </span>writer, <span class="number">0</span>)<span class="question-mark">?</span>;

@@ -2235,10 +2235,10 @@
         };
 
         <span class="comment">// should fail if we have a gap
-        </span><span class="macro">assert_matches!</span>(
+        </span><span class="macro">assert!</span>(<span class="macro">matches!</span>(
             init_accounts_table(<span class="kw-2">&amp;</span>db_data, <span class="kw-2">&amp;</span>ufvks(<span class="kw-2">&amp;</span>[<span class="number">0</span>, <span class="number">2</span>])),
             <span class="prelude-val">Err</span>(SqliteClientError::AccountIdDiscontinuity)
-        );
+        ));
 
         <span class="comment">// should succeed if there are no gaps
         </span><span class="macro">assert!</span>(init_accounts_table(<span class="kw-2">&amp;</span>db_data, <span class="kw-2">&amp;</span>ufvks(<span class="kw-2">&amp;</span>[<span class="number">0</span>, <span class="number">1</span>, <span class="number">2</span>])).is_ok());

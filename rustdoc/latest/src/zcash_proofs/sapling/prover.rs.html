@@ -232,31 +232,52 @@
 <a href="#232" id="232">232</a>
 <a href="#233" id="233">233</a>
 <a href="#234" id="234">234</a>
+<a href="#235" id="235">235</a>
+<a href="#236" id="236">236</a>
+<a href="#237" id="237">237</a>
+<a href="#238" id="238">238</a>
+<a href="#239" id="239">239</a>
+<a href="#240" id="240">240</a>
+<a href="#241" id="241">241</a>
+<a href="#242" id="242">242</a>
+<a href="#243" id="243">243</a>
+<a href="#244" id="244">244</a>
+<a href="#245" id="245">245</a>
+<a href="#246" id="246">246</a>
+<a href="#247" id="247">247</a>
+<a href="#248" id="248">248</a>
+<a href="#249" id="249">249</a>
+<a href="#250" id="250">250</a>
+<a href="#251" id="251">251</a>
+<a href="#252" id="252">252</a>
+<a href="#253" id="253">253</a>
+<a href="#254" id="254">254</a>
 </pre><pre class="rust"><code><span class="kw">use </span>bellman::{
     gadgets::multipack,
     groth16::{create_random_proof, verify_proof, Parameters, PreparedVerifyingKey, Proof},
 };
 <span class="kw">use </span>bls12_381::Bls12;
-<span class="kw">use </span>group::{Curve, GroupEncoding};
+<span class="kw">use </span>group::{ff::Field, Curve, GroupEncoding};
 <span class="kw">use </span>rand_core::OsRng;
+<span class="kw">use </span>std::ops::{AddAssign, Neg};
 <span class="kw">use </span>zcash_primitives::{
     constants::{SPENDING_KEY_GENERATOR, VALUE_COMMITMENT_RANDOMNESS_GENERATOR},
     merkle_tree::MerklePath,
     sapling::{
-        redjubjub::{PublicKey, Signature},
-        value::{CommitmentSum, NoteValue, TrapdoorSum, ValueCommitTrapdoor, ValueCommitment},
-        Diversifier, Node, Note, PaymentAddress, ProofGenerationKey, Rseed,
+        redjubjub::{PrivateKey, PublicKey, Signature},
+        Diversifier, Node, Note, PaymentAddress, ProofGenerationKey, Rseed, ValueCommitment,
     },
     transaction::components::Amount,
 };
 
-<span class="kw">use </span><span class="kw">crate</span>::circuit::sapling::{Output, Spend, ValueCommitmentOpening};
+<span class="kw">use </span><span class="kw">super</span>::compute_value_balance;
+<span class="kw">use </span><span class="kw">crate</span>::circuit::sapling::{Output, Spend};
 
 <span class="doccomment">/// A context object for creating the Sapling components of a Zcash transaction.
 </span><span class="kw">pub struct </span>SaplingProvingContext {
-    bsk: TrapdoorSum,
+    bsk: jubjub::Fr,
     <span class="comment">// (sum of the Spend value commitments) - (sum of the Output value commitments)
-    </span>cv_sum: CommitmentSum,
+    </span>cv_sum: jubjub::ExtendedPoint,
 }
 
 <span class="kw">impl </span>Default <span class="kw">for </span>SaplingProvingContext {
@@ -269,8 +290,8 @@
     <span class="doccomment">/// Construct a new context to be used with a single transaction.
     </span><span class="kw">pub fn </span>new() -&gt; <span class="self">Self </span>{
         SaplingProvingContext {
-            bsk: TrapdoorSum::zero(),
-            cv_sum: CommitmentSum::zero(),
+            bsk: jubjub::Fr::zero(),
+            cv_sum: jubjub::ExtendedPoint::identity(),
         }
     }
 
@@ -289,22 +310,27 @@
         merkle_path: MerklePath&lt;Node&gt;,
         proving_key: <span class="kw-2">&amp;</span>Parameters&lt;Bls12&gt;,
         verifying_key: <span class="kw-2">&amp;</span>PreparedVerifyingKey&lt;Bls12&gt;,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;(Proof&lt;Bls12&gt;, ValueCommitment, PublicKey), ()&gt; {
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;(Proof&lt;Bls12&gt;, jubjub::ExtendedPoint, PublicKey), ()&gt; {
         <span class="comment">// Initialize secure RNG
         </span><span class="kw">let </span><span class="kw-2">mut </span>rng = OsRng;
 
         <span class="comment">// We create the randomness of the value commitment
-        </span><span class="kw">let </span>rcv = ValueCommitTrapdoor::random(<span class="kw-2">&amp;mut </span>rng);
+        </span><span class="kw">let </span>rcv = jubjub::Fr::random(<span class="kw-2">&amp;mut </span>rng);
 
         <span class="comment">// Accumulate the value commitment randomness in the context
-        </span><span class="self">self</span>.bsk += <span class="kw-2">&amp;</span>rcv;
+        </span>{
+            <span class="kw">let </span><span class="kw-2">mut </span>tmp = rcv;
+            tmp.add_assign(<span class="kw-2">&amp;</span><span class="self">self</span>.bsk);
+
+            <span class="comment">// Update the context
+            </span><span class="self">self</span>.bsk = tmp;
+        }
 
         <span class="comment">// Construct the value commitment
-        </span><span class="kw">let </span>value_commitment_opening = ValueCommitmentOpening {
+        </span><span class="kw">let </span>value_commitment = ValueCommitment {
             value,
-            randomness: rcv.inner(),
+            randomness: rcv,
         };
-        <span class="kw">let </span>value_commitment = ValueCommitment::derive(NoteValue::from_raw(value), rcv);
 
         <span class="comment">// Construct the viewing key
         </span><span class="kw">let </span>viewing_key = proof_generation_key.to_viewing_key();
@@ -327,7 +353,7 @@
 
         <span class="comment">// We now have the full witness for our circuit
         </span><span class="kw">let </span>instance = Spend {
-            value_commitment_opening: <span class="prelude-val">Some</span>(value_commitment_opening),
+            value_commitment: <span class="prelude-val">Some</span>(value_commitment.clone()),
             proof_generation_key: <span class="prelude-val">Some</span>(proof_generation_key),
             payment_address: <span class="prelude-val">Some</span>(payment_address),
             commitment_randomness: <span class="prelude-val">Some</span>(note.rcm()),
@@ -354,7 +380,7 @@
             public_input[<span class="number">1</span>] = v;
         }
         {
-            <span class="kw">let </span>affine = value_commitment.as_inner().to_affine();
+            <span class="kw">let </span>affine = jubjub::ExtendedPoint::from(value_commitment.commitment()).to_affine();
             <span class="kw">let </span>(u, v) = (affine.get_u(), affine.get_v());
             public_input[<span class="number">2</span>] = u;
             public_input[<span class="number">3</span>] = v;
@@ -375,8 +401,11 @@
         <span class="comment">// Verify the proof
         </span>verify_proof(verifying_key, <span class="kw-2">&amp;</span>proof, <span class="kw-2">&amp;</span>public_input[..]).map_err(|<span class="kw">_</span>| ())<span class="question-mark">?</span>;
 
+        <span class="comment">// Compute value commitment
+        </span><span class="kw">let </span>value_commitment: jubjub::ExtendedPoint = value_commitment.commitment().into();
+
         <span class="comment">// Accumulate the value commitment in the context
-        </span><span class="self">self</span>.cv_sum += <span class="kw-2">&amp;</span>value_commitment;
+        </span><span class="self">self</span>.cv_sum += value_commitment;
 
         <span class="prelude-val">Ok</span>((proof, value_commitment, rk))
     }
@@ -391,28 +420,33 @@
         rcm: jubjub::Fr,
         value: u64,
         proving_key: <span class="kw-2">&amp;</span>Parameters&lt;Bls12&gt;,
-    ) -&gt; (Proof&lt;Bls12&gt;, ValueCommitment) {
+    ) -&gt; (Proof&lt;Bls12&gt;, jubjub::ExtendedPoint) {
         <span class="comment">// Initialize secure RNG
         </span><span class="kw">let </span><span class="kw-2">mut </span>rng = OsRng;
 
         <span class="comment">// We construct ephemeral randomness for the value commitment. This
         // randomness is not given back to the caller, but the synthetic
         // blinding factor `bsk` is accumulated in the context.
-        </span><span class="kw">let </span>rcv = ValueCommitTrapdoor::random(<span class="kw-2">&amp;mut </span>rng);
+        </span><span class="kw">let </span>rcv = jubjub::Fr::random(<span class="kw-2">&amp;mut </span>rng);
 
         <span class="comment">// Accumulate the value commitment randomness in the context
-        </span><span class="self">self</span>.bsk -= <span class="kw-2">&amp;</span>rcv; <span class="comment">// Outputs subtract from the total.
+        </span>{
+            <span class="kw">let </span><span class="kw-2">mut </span>tmp = rcv.neg(); <span class="comment">// Outputs subtract from the total.
+            </span>tmp.add_assign(<span class="kw-2">&amp;</span><span class="self">self</span>.bsk);
 
-        // Construct the value commitment for the proof instance
-        </span><span class="kw">let </span>value_commitment_opening = ValueCommitmentOpening {
+            <span class="comment">// Update the context
+            </span><span class="self">self</span>.bsk = tmp;
+        }
+
+        <span class="comment">// Construct the value commitment for the proof instance
+        </span><span class="kw">let </span>value_commitment = ValueCommitment {
             value,
-            randomness: rcv.inner(),
+            randomness: rcv,
         };
-        <span class="kw">let </span>value_commitment = ValueCommitment::derive(NoteValue::from_raw(value), rcv);
 
         <span class="comment">// We now have a full witness for the output proof.
         </span><span class="kw">let </span>instance = Output {
-            value_commitment_opening: <span class="prelude-val">Some</span>(value_commitment_opening),
+            value_commitment: <span class="prelude-val">Some</span>(value_commitment.clone()),
             payment_address: <span class="prelude-val">Some</span>(payment_address),
             commitment_randomness: <span class="prelude-val">Some</span>(rcm),
             esk: <span class="prelude-val">Some</span>(esk),
@@ -422,8 +456,11 @@
         </span><span class="kw">let </span>proof =
             create_random_proof(instance, proving_key, <span class="kw-2">&amp;mut </span>rng).expect(<span class="string">&quot;proving should not fail&quot;</span>);
 
+        <span class="comment">// Compute the actual value commitment
+        </span><span class="kw">let </span>value_commitment: jubjub::ExtendedPoint = value_commitment.commitment().into();
+
         <span class="comment">// Accumulate the value commitment in the context. We do this to check internal consistency.
-        </span><span class="self">self</span>.cv_sum -= <span class="kw-2">&amp;</span>value_commitment; <span class="comment">// Outputs subtract from the total.
+        </span><span class="self">self</span>.cv_sum -= value_commitment; <span class="comment">// Outputs subtract from the total.
 
         </span>(proof, value_commitment)
     }
@@ -435,7 +472,7 @@
         </span><span class="kw">let </span><span class="kw-2">mut </span>rng = OsRng;
 
         <span class="comment">// Grab the current `bsk` from the context
-        </span><span class="kw">let </span>bsk = <span class="self">self</span>.bsk.into_bsk();
+        </span><span class="kw">let </span>bsk = PrivateKey(<span class="self">self</span>.bsk);
 
         <span class="comment">// Grab the `bvk` using DerivePublic.
         </span><span class="kw">let </span>bvk = PublicKey::from_private(<span class="kw-2">&amp;</span>bsk, VALUE_COMMITMENT_RANDOMNESS_GENERATOR);
@@ -444,11 +481,14 @@
         // commitments (as the verifier would) and apply value_balance to compare
         // against our derived bvk.
         </span>{
-            <span class="comment">// Compute the final bvk.
-            </span><span class="kw">let </span>final_bvk = <span class="self">self</span>.cv_sum.into_bvk(value_balance);
+            <span class="comment">// Compute value balance
+            </span><span class="kw">let </span>value_balance = compute_value_balance(value_balance).ok_or(())<span class="question-mark">?</span>;
+
+            <span class="comment">// Subtract value_balance from cv_sum to get final bvk
+            </span><span class="kw">let </span>final_bvk = <span class="self">self</span>.cv_sum - value_balance;
 
             <span class="comment">// The result should be the same, unless the provided valueBalance is wrong.
-            </span><span class="kw">if </span>bvk.<span class="number">0 </span>!= final_bvk.<span class="number">0 </span>{
+            </span><span class="kw">if </span>bvk.<span class="number">0 </span>!= final_bvk {
                 <span class="kw">return </span><span class="prelude-val">Err</span>(());
             }
         }

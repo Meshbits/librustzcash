@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":[["arb_incoming_viewing_key",""],["arb_node",""],["arb_note",""],["arb_payment_address",""]]};
+window.SIDEBAR_ITEMS = {"fn":[["arb_incoming_viewing_key",""],["arb_node",""],["arb_note",""],["arb_note_value",""],["arb_payment_address",""],["arb_positive_note_value","The"]]};

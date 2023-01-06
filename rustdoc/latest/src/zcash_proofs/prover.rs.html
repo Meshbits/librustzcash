@@ -202,7 +202,6 @@
 <a href="#202" id="202">202</a>
 <a href="#203" id="203">203</a>
 <a href="#204" id="204">204</a>
-<a href="#205" id="205">205</a>
 </pre><pre class="rust"><code><span class="doccomment">//! Abstractions over the proving system and parameters for ease of use.
 
 </span><span class="kw">use </span>bellman::groth16::{Parameters, PreparedVerifyingKey};
@@ -213,7 +212,6 @@
     sapling::{
         prover::TxProver,
         redjubjub::{PublicKey, Signature},
-        value::ValueCommitment,
         Diversifier, Node, PaymentAddress, ProofGenerationKey, Rseed,
     },
     transaction::components::{Amount, GROTH_PROOF_SIZE},
@@ -360,7 +358,7 @@
         value: u64,
         anchor: bls12_381::Scalar,
         merkle_path: MerklePath&lt;Node&gt;,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;([u8; GROTH_PROOF_SIZE], ValueCommitment, PublicKey), ()&gt; {
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;([u8; GROTH_PROOF_SIZE], jubjub::ExtendedPoint, PublicKey), ()&gt; {
         <span class="kw">let </span>(proof, cv, rk) = ctx.spend_proof(
             proof_generation_key,
             diversifier,
@@ -388,7 +386,7 @@
         payment_address: PaymentAddress,
         rcm: jubjub::Fr,
         value: u64,
-    ) -&gt; ([u8; GROTH_PROOF_SIZE], ValueCommitment) {
+    ) -&gt; ([u8; GROTH_PROOF_SIZE], jubjub::ExtendedPoint) {
         <span class="kw">let </span>(proof, cv) = ctx.output_proof(esk, payment_address, rcm, value, <span class="kw-2">&amp;</span><span class="self">self</span>.output_params);
 
         <span class="kw">let </span><span class="kw-2">mut </span>zkproof = [<span class="number">0u8</span>; GROTH_PROOF_SIZE];

@@ -437,7 +437,7 @@
         <span class="attr">#[cfg(not(feature = <span class="string">&quot;transparent-inputs&quot;</span>))]
         </span>{
             <span class="kw">let </span>invalid: <span class="kw-2">&amp;</span>[InvalidTransparentInput] = <span class="kw-2">&amp;</span>[];
-            invalid
+            <span class="kw">return </span>invalid;
         }
     }
 
@@ -615,7 +615,7 @@
 
                 <span class="comment">// Signature has to have &quot;SIGHASH_ALL&quot; appended to it
                 </span><span class="kw">let </span><span class="kw-2">mut </span>sig_bytes: Vec&lt;u8&gt; = sig.serialize_der()[..].to_vec();
-                sig_bytes.extend([SIGHASH_ALL]);
+                sig_bytes.extend([SIGHASH_ALL <span class="kw">as </span>u8]);
 
                 <span class="comment">// P2PKH scriptSig
                 </span>Script::default() &lt;&lt; <span class="kw-2">&amp;</span>sig_bytes[..] &lt;&lt; <span class="kw-2">&amp;</span>info.pubkey[..]

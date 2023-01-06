@@ -948,85 +948,6 @@
 <a href="#948" id="948">948</a>
 <a href="#949" id="949">949</a>
 <a href="#950" id="950">950</a>
-<a href="#951" id="951">951</a>
-<a href="#952" id="952">952</a>
-<a href="#953" id="953">953</a>
-<a href="#954" id="954">954</a>
-<a href="#955" id="955">955</a>
-<a href="#956" id="956">956</a>
-<a href="#957" id="957">957</a>
-<a href="#958" id="958">958</a>
-<a href="#959" id="959">959</a>
-<a href="#960" id="960">960</a>
-<a href="#961" id="961">961</a>
-<a href="#962" id="962">962</a>
-<a href="#963" id="963">963</a>
-<a href="#964" id="964">964</a>
-<a href="#965" id="965">965</a>
-<a href="#966" id="966">966</a>
-<a href="#967" id="967">967</a>
-<a href="#968" id="968">968</a>
-<a href="#969" id="969">969</a>
-<a href="#970" id="970">970</a>
-<a href="#971" id="971">971</a>
-<a href="#972" id="972">972</a>
-<a href="#973" id="973">973</a>
-<a href="#974" id="974">974</a>
-<a href="#975" id="975">975</a>
-<a href="#976" id="976">976</a>
-<a href="#977" id="977">977</a>
-<a href="#978" id="978">978</a>
-<a href="#979" id="979">979</a>
-<a href="#980" id="980">980</a>
-<a href="#981" id="981">981</a>
-<a href="#982" id="982">982</a>
-<a href="#983" id="983">983</a>
-<a href="#984" id="984">984</a>
-<a href="#985" id="985">985</a>
-<a href="#986" id="986">986</a>
-<a href="#987" id="987">987</a>
-<a href="#988" id="988">988</a>
-<a href="#989" id="989">989</a>
-<a href="#990" id="990">990</a>
-<a href="#991" id="991">991</a>
-<a href="#992" id="992">992</a>
-<a href="#993" id="993">993</a>
-<a href="#994" id="994">994</a>
-<a href="#995" id="995">995</a>
-<a href="#996" id="996">996</a>
-<a href="#997" id="997">997</a>
-<a href="#998" id="998">998</a>
-<a href="#999" id="999">999</a>
-<a href="#1000" id="1000">1000</a>
-<a href="#1001" id="1001">1001</a>
-<a href="#1002" id="1002">1002</a>
-<a href="#1003" id="1003">1003</a>
-<a href="#1004" id="1004">1004</a>
-<a href="#1005" id="1005">1005</a>
-<a href="#1006" id="1006">1006</a>
-<a href="#1007" id="1007">1007</a>
-<a href="#1008" id="1008">1008</a>
-<a href="#1009" id="1009">1009</a>
-<a href="#1010" id="1010">1010</a>
-<a href="#1011" id="1011">1011</a>
-<a href="#1012" id="1012">1012</a>
-<a href="#1013" id="1013">1013</a>
-<a href="#1014" id="1014">1014</a>
-<a href="#1015" id="1015">1015</a>
-<a href="#1016" id="1016">1016</a>
-<a href="#1017" id="1017">1017</a>
-<a href="#1018" id="1018">1018</a>
-<a href="#1019" id="1019">1019</a>
-<a href="#1020" id="1020">1020</a>
-<a href="#1021" id="1021">1021</a>
-<a href="#1022" id="1022">1022</a>
-<a href="#1023" id="1023">1023</a>
-<a href="#1024" id="1024">1024</a>
-<a href="#1025" id="1025">1025</a>
-<a href="#1026" id="1026">1026</a>
-<a href="#1027" id="1027">1027</a>
-<a href="#1028" id="1028">1028</a>
-<a href="#1029" id="1029">1029</a>
 </pre><pre class="rust"><code><span class="doccomment">//! Functions for creating transactions.
 //!
 </span><span class="kw">use </span>rusqlite::{named_params, types::Value, Row};
@@ -1252,21 +1173,6 @@
             init::{init_blocks_table, init_wallet_db},
         },
         AccountId, BlockDb, DataConnStmtCache, WalletDb,
-    };
-
-    <span class="attr">#[cfg(feature = <span class="string">&quot;transparent-inputs&quot;</span>)]
-    </span><span class="kw">use </span>{
-        zcash_client_backend::{
-            data_api::wallet::shield_transparent_funds, fees::fixed,
-            wallet::WalletTransparentOutput,
-        },
-        zcash_primitives::{
-            memo::MemoBytes,
-            transaction::{
-                components::{amount::NonNegativeAmount, OutPoint, TxOut},
-                fees::fixed::FeeRule <span class="kw">as </span>FixedFeeRule,
-            },
-        },
     };
 
     <span class="kw">fn </span>test_prover() -&gt; <span class="kw">impl </span>TxProver {
@@ -1740,7 +1646,7 @@
                 )
                 .unwrap();
 
-            <span class="kw">let </span>output = <span class="kw-2">&amp;</span>tx.sapling_bundle().unwrap().shielded_outputs()[output_index <span class="kw">as </span>usize];
+            <span class="kw">let </span>output = <span class="kw-2">&amp;</span>tx.sapling_bundle().unwrap().shielded_outputs[output_index <span class="kw">as </span>usize];
 
             try_sapling_output_recovery(
                 <span class="kw-2">&amp;</span>network,
@@ -1813,7 +1719,7 @@
         );
 
         <span class="kw">let </span>to = TransparentAddress::PublicKey([<span class="number">7</span>; <span class="number">20</span>]).into();
-        <span class="macro">assert_matches!</span>(
+        <span class="macro">assert!</span>(<span class="macro">matches!</span>(
             create_spend_to_address(
                 <span class="kw-2">&amp;mut </span>db_write,
                 <span class="kw-2">&amp;</span>tests::network(),
@@ -1826,7 +1732,7 @@
                 <span class="number">10</span>,
             ),
             <span class="prelude-val">Ok</span>(<span class="kw">_</span>)
-        );
+        ));
     }
 
     <span class="attr">#[test]
@@ -1988,70 +1894,6 @@
                 OvkPolicy::Sender,
                 <span class="number">1</span>,
             ),
-            <span class="prelude-val">Ok</span>(<span class="kw">_</span>)
-        );
-    }
-
-    <span class="attr">#[test]
-    #[cfg(feature = <span class="string">&quot;transparent-inputs&quot;</span>)]
-    </span><span class="kw">fn </span>shield_transparent() {
-        <span class="kw">let </span>cache_file = NamedTempFile::new().unwrap();
-        <span class="kw">let </span>db_cache = BlockDb(Connection::open(cache_file.path()).unwrap());
-        init_cache_database(<span class="kw-2">&amp;</span>db_cache).unwrap();
-
-        <span class="kw">let </span>data_file = NamedTempFile::new().unwrap();
-        <span class="kw">let </span><span class="kw-2">mut </span>db_data = WalletDb::for_path(data_file.path(), tests::network()).unwrap();
-        init_wallet_db(<span class="kw-2">&amp;mut </span>db_data, <span class="prelude-val">None</span>).unwrap();
-
-        <span class="comment">// Add an account to the wallet
-        </span><span class="kw">let </span><span class="kw-2">mut </span>db_write = db_data.get_update_ops().unwrap();
-        <span class="kw">let </span>seed = Secret::new([<span class="number">0u8</span>; <span class="number">32</span>].to_vec());
-        <span class="kw">let </span>(account_id, usk) = db_write.create_account(<span class="kw-2">&amp;</span>seed).unwrap();
-        <span class="kw">let </span>dfvk = usk.sapling().to_diversifiable_full_viewing_key();
-        <span class="kw">let </span>uaddr = db_data.get_current_address(account_id).unwrap().unwrap();
-        <span class="kw">let </span>taddr = uaddr.transparent().unwrap();
-
-        <span class="kw">let </span>utxo = WalletTransparentOutput::from_parts(
-            OutPoint::new([<span class="number">1u8</span>; <span class="number">32</span>], <span class="number">1</span>),
-            TxOut {
-                value: Amount::from_u64(<span class="number">10000</span>).unwrap(),
-                script_pubkey: taddr.script(),
-            },
-            sapling_activation_height(),
-        )
-        .unwrap();
-
-        <span class="kw">let </span>res0 = db_write.put_received_transparent_utxo(<span class="kw-2">&amp;</span>utxo);
-        <span class="macro">assert!</span>(<span class="macro">matches!</span>(res0, <span class="prelude-val">Ok</span>(<span class="kw">_</span>)));
-
-        <span class="kw">let </span>input_selector = GreedyInputSelector::new(
-            fixed::SingleOutputChangeStrategy::new(FixedFeeRule::standard()),
-            DustOutputPolicy::default(),
-        );
-
-        <span class="comment">// Add funds to the wallet
-        </span><span class="kw">let </span>(cb, <span class="kw">_</span>) = fake_compact_block(
-            sapling_activation_height(),
-            BlockHash([<span class="number">0</span>; <span class="number">32</span>]),
-            <span class="kw-2">&amp;</span>dfvk,
-            AddressType::Internal,
-            Amount::from_u64(<span class="number">50000</span>).unwrap(),
-        );
-        insert_into_cache(<span class="kw-2">&amp;</span>db_cache, <span class="kw-2">&amp;</span>cb);
-        scan_cached_blocks(<span class="kw-2">&amp;</span>tests::network(), <span class="kw-2">&amp;</span>db_cache, <span class="kw-2">&amp;mut </span>db_write, <span class="prelude-val">None</span>).unwrap();
-
-        <span class="macro">assert_matches!</span>(
-            shield_transparent_funds(
-                <span class="kw-2">&amp;mut </span>db_write,
-                <span class="kw-2">&amp;</span>tests::network(),
-                test_prover(),
-                <span class="kw-2">&amp;</span>input_selector,
-                NonNegativeAmount::from_u64(<span class="number">10000</span>).unwrap(),
-                <span class="kw-2">&amp;</span>usk,
-                <span class="kw-2">&amp;</span>[<span class="kw-2">*</span>taddr],
-                <span class="kw-2">&amp;</span>MemoBytes::empty(),
-                <span class="number">0
-            </span>),
             <span class="prelude-val">Ok</span>(<span class="kw">_</span>)
         );
     }
