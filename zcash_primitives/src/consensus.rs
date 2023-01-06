@@ -180,13 +180,13 @@ pub trait Parameters: Clone {
     /// applies.
     ///
     /// [`TransparentAddress::PublicKey`]: zcash_primitives::legacy::TransparentAddress::PublicKey
-    fn b58_pubkey_address_prefix(&self) -> [u8; 2];
+    fn b58_pubkey_address_prefix(&self) -> [u8; 1];
 
     /// Returns the human-readable prefix for Base58Check-encoded transparent pay-to-script-hash
     /// payment addresses for the network to which this Parameters value applies.
     ///
     /// [`TransparentAddress::Script`]: zcash_primitives::legacy::TransparentAddress::Script
-    fn b58_script_address_prefix(&self) -> [u8; 2];
+    fn b58_script_address_prefix(&self) -> [u8; 1];
 }
 
 /// Marker struct for the production network.
@@ -200,12 +200,12 @@ pub const MAIN_NETWORK: MainNetwork = MainNetwork;
 impl Parameters for MainNetwork {
     fn activation_height(&self, nu: NetworkUpgrade) -> Option<BlockHeight> {
         match nu {
-            NetworkUpgrade::Overwinter => Some(BlockHeight(347_500)),
-            NetworkUpgrade::Sapling => Some(BlockHeight(419_200)),
-            NetworkUpgrade::Blossom => Some(BlockHeight(653_600)),
-            NetworkUpgrade::Heartwood => Some(BlockHeight(903_000)),
-            NetworkUpgrade::Canopy => Some(BlockHeight(1_046_400)),
-            NetworkUpgrade::Nu5 => Some(BlockHeight(1_687_104)),
+            NetworkUpgrade::Overwinter => Some(BlockHeight(0)),
+            NetworkUpgrade::Sapling => Some(BlockHeight(152_855)),
+            NetworkUpgrade::Blossom => Some(BlockHeight(4_000_000_000)),
+            NetworkUpgrade::Heartwood => Some(BlockHeight(4_000_000_000)),
+            NetworkUpgrade::Canopy => Some(BlockHeight(4_000_000_000)),
+            NetworkUpgrade::Nu5 => Some(BlockHeight(4_000_000_000)),
             #[cfg(feature = "zfuture")]
             NetworkUpgrade::ZFuture => None,
         }
@@ -231,11 +231,11 @@ impl Parameters for MainNetwork {
         constants::mainnet::HRP_SAPLING_PAYMENT_ADDRESS
     }
 
-    fn b58_pubkey_address_prefix(&self) -> [u8; 2] {
+    fn b58_pubkey_address_prefix(&self) -> [u8; 1] {
         constants::mainnet::B58_PUBKEY_ADDRESS_PREFIX
     }
 
-    fn b58_script_address_prefix(&self) -> [u8; 2] {
+    fn b58_script_address_prefix(&self) -> [u8; 1] {
         constants::mainnet::B58_SCRIPT_ADDRESS_PREFIX
     }
 }
@@ -282,11 +282,11 @@ impl Parameters for TestNetwork {
         constants::testnet::HRP_SAPLING_PAYMENT_ADDRESS
     }
 
-    fn b58_pubkey_address_prefix(&self) -> [u8; 2] {
+    fn b58_pubkey_address_prefix(&self) -> [u8; 1] {
         constants::testnet::B58_PUBKEY_ADDRESS_PREFIX
     }
 
-    fn b58_script_address_prefix(&self) -> [u8; 2] {
+    fn b58_script_address_prefix(&self) -> [u8; 1] {
         constants::testnet::B58_SCRIPT_ADDRESS_PREFIX
     }
 }
@@ -342,14 +342,14 @@ impl Parameters for Network {
         }
     }
 
-    fn b58_pubkey_address_prefix(&self) -> [u8; 2] {
+    fn b58_pubkey_address_prefix(&self) -> [u8; 1] {
         match self {
             Network::MainNetwork => MAIN_NETWORK.b58_pubkey_address_prefix(),
             Network::TestNetwork => TEST_NETWORK.b58_pubkey_address_prefix(),
         }
     }
 
-    fn b58_script_address_prefix(&self) -> [u8; 2] {
+    fn b58_script_address_prefix(&self) -> [u8; 1] {
         match self {
             Network::MainNetwork => MAIN_NETWORK.b58_script_address_prefix(),
             Network::TestNetwork => TEST_NETWORK.b58_script_address_prefix(),
@@ -677,27 +677,27 @@ mod tests {
             BranchId::Sprout,
         );
         assert_eq!(
-            BranchId::for_height(&MAIN_NETWORK, BlockHeight(419_199)),
+            BranchId::for_height(&MAIN_NETWORK, BlockHeight(152_855)),
             BranchId::Overwinter,
         );
         assert_eq!(
-            BranchId::for_height(&MAIN_NETWORK, BlockHeight(419_200)),
+            BranchId::for_height(&MAIN_NETWORK, BlockHeight(152_855)),
             BranchId::Sapling,
         );
         assert_eq!(
-            BranchId::for_height(&MAIN_NETWORK, BlockHeight(903_000)),
+            BranchId::for_height(&MAIN_NETWORK, BlockHeight(152_855)),
             BranchId::Heartwood,
         );
         assert_eq!(
-            BranchId::for_height(&MAIN_NETWORK, BlockHeight(1_046_400)),
+            BranchId::for_height(&MAIN_NETWORK, BlockHeight(152_855)),
             BranchId::Canopy,
         );
         assert_eq!(
-            BranchId::for_height(&MAIN_NETWORK, BlockHeight(1_687_104)),
+            BranchId::for_height(&MAIN_NETWORK, BlockHeight(152_855)),
             BranchId::Nu5,
         );
         assert_eq!(
-            BranchId::for_height(&MAIN_NETWORK, BlockHeight(5_000_000)),
+            BranchId::for_height(&MAIN_NETWORK, BlockHeight(152_855)),
             BranchId::Nu5,
         );
     }
