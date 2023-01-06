@@ -884,13 +884,13 @@
     /// applies.
     ///
     /// [`TransparentAddress::PublicKey`]: zcash_primitives::legacy::TransparentAddress::PublicKey
-    </span><span class="kw">fn </span>b58_pubkey_address_prefix(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; [u8; <span class="number">2</span>];
+    </span><span class="kw">fn </span>b58_pubkey_address_prefix(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; [u8; <span class="number">1</span>];
 
     <span class="doccomment">/// Returns the human-readable prefix for Base58Check-encoded transparent pay-to-script-hash
     /// payment addresses for the network to which this Parameters value applies.
     ///
     /// [`TransparentAddress::Script`]: zcash_primitives::legacy::TransparentAddress::Script
-    </span><span class="kw">fn </span>b58_script_address_prefix(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; [u8; <span class="number">2</span>];
+    </span><span class="kw">fn </span>b58_script_address_prefix(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; [u8; <span class="number">1</span>];
 }
 
 <span class="doccomment">/// Marker struct for the production network.
@@ -904,12 +904,12 @@
 <span class="kw">impl </span>Parameters <span class="kw">for </span>MainNetwork {
     <span class="kw">fn </span>activation_height(<span class="kw-2">&amp;</span><span class="self">self</span>, nu: NetworkUpgrade) -&gt; <span class="prelude-ty">Option</span>&lt;BlockHeight&gt; {
         <span class="kw">match </span>nu {
-            NetworkUpgrade::Overwinter =&gt; <span class="prelude-val">Some</span>(BlockHeight(<span class="number">347_500</span>)),
-            NetworkUpgrade::Sapling =&gt; <span class="prelude-val">Some</span>(BlockHeight(<span class="number">419_200</span>)),
-            NetworkUpgrade::Blossom =&gt; <span class="prelude-val">Some</span>(BlockHeight(<span class="number">653_600</span>)),
-            NetworkUpgrade::Heartwood =&gt; <span class="prelude-val">Some</span>(BlockHeight(<span class="number">903_000</span>)),
-            NetworkUpgrade::Canopy =&gt; <span class="prelude-val">Some</span>(BlockHeight(<span class="number">1_046_400</span>)),
-            NetworkUpgrade::Nu5 =&gt; <span class="prelude-val">Some</span>(BlockHeight(<span class="number">1_687_104</span>)),
+            NetworkUpgrade::Overwinter =&gt; <span class="prelude-val">Some</span>(BlockHeight(<span class="number">0</span>)),
+            NetworkUpgrade::Sapling =&gt; <span class="prelude-val">Some</span>(BlockHeight(<span class="number">152_855</span>)),
+            NetworkUpgrade::Blossom =&gt; <span class="prelude-val">Some</span>(BlockHeight(<span class="number">4_000_000_000</span>)),
+            NetworkUpgrade::Heartwood =&gt; <span class="prelude-val">Some</span>(BlockHeight(<span class="number">4_000_000_000</span>)),
+            NetworkUpgrade::Canopy =&gt; <span class="prelude-val">Some</span>(BlockHeight(<span class="number">4_000_000_000</span>)),
+            NetworkUpgrade::Nu5 =&gt; <span class="prelude-val">Some</span>(BlockHeight(<span class="number">4_000_000_000</span>)),
             <span class="attr">#[cfg(feature = <span class="string">&quot;zfuture&quot;</span>)]
             </span>NetworkUpgrade::ZFuture =&gt; <span class="prelude-val">None</span>,
         }
@@ -935,11 +935,11 @@
         constants::mainnet::HRP_SAPLING_PAYMENT_ADDRESS
     }
 
-    <span class="kw">fn </span>b58_pubkey_address_prefix(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; [u8; <span class="number">2</span>] {
+    <span class="kw">fn </span>b58_pubkey_address_prefix(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; [u8; <span class="number">1</span>] {
         constants::mainnet::B58_PUBKEY_ADDRESS_PREFIX
     }
 
-    <span class="kw">fn </span>b58_script_address_prefix(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; [u8; <span class="number">2</span>] {
+    <span class="kw">fn </span>b58_script_address_prefix(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; [u8; <span class="number">1</span>] {
         constants::mainnet::B58_SCRIPT_ADDRESS_PREFIX
     }
 }
@@ -986,11 +986,11 @@
         constants::testnet::HRP_SAPLING_PAYMENT_ADDRESS
     }
 
-    <span class="kw">fn </span>b58_pubkey_address_prefix(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; [u8; <span class="number">2</span>] {
+    <span class="kw">fn </span>b58_pubkey_address_prefix(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; [u8; <span class="number">1</span>] {
         constants::testnet::B58_PUBKEY_ADDRESS_PREFIX
     }
 
-    <span class="kw">fn </span>b58_script_address_prefix(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; [u8; <span class="number">2</span>] {
+    <span class="kw">fn </span>b58_script_address_prefix(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; [u8; <span class="number">1</span>] {
         constants::testnet::B58_SCRIPT_ADDRESS_PREFIX
     }
 }
@@ -1046,14 +1046,14 @@
         }
     }
 
-    <span class="kw">fn </span>b58_pubkey_address_prefix(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; [u8; <span class="number">2</span>] {
+    <span class="kw">fn </span>b58_pubkey_address_prefix(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; [u8; <span class="number">1</span>] {
         <span class="kw">match </span><span class="self">self </span>{
             Network::MainNetwork =&gt; MAIN_NETWORK.b58_pubkey_address_prefix(),
             Network::TestNetwork =&gt; TEST_NETWORK.b58_pubkey_address_prefix(),
         }
     }
 
-    <span class="kw">fn </span>b58_script_address_prefix(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; [u8; <span class="number">2</span>] {
+    <span class="kw">fn </span>b58_script_address_prefix(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; [u8; <span class="number">1</span>] {
         <span class="kw">match </span><span class="self">self </span>{
             Network::MainNetwork =&gt; MAIN_NETWORK.b58_script_address_prefix(),
             Network::TestNetwork =&gt; TEST_NETWORK.b58_script_address_prefix(),
