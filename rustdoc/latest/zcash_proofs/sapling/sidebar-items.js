@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":[["BatchValidator","Batch validation context for Sapling."],["SaplingProvingContext","A context object for creating the Sapling components of a Zcash transaction."],["SaplingVerificationContext","A context object for verifying the Sapling components of a single Zcash transaction."]]};

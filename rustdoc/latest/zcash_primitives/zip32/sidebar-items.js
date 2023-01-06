@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":[["ChildIndex","A child index for a derived key"],["Scope","The scope of a viewing key or address."]],"mod":[["sapling","Sapling key derivation according to ZIP 32 and ZIP 316"]],"struct":[["AccountId","A type-safe wrapper for account identifiers."],["ChainCode","A BIP-32 chain code"],["DiversifierIndex",""]]};

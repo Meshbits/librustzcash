@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":[["FeeRule","A fee rule that always returns a fixed fee, irrespective of the structure of the transaction being constructed."]]};

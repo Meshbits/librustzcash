@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":[["SqliteClientError","The primary error type for the SQLite wallet backend."]]};

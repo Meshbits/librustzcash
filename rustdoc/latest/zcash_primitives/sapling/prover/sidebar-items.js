@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":[["mock",""]],"trait":[["TxProver","Interface for creating zero-knowledge proofs for shielded transactions."]]};

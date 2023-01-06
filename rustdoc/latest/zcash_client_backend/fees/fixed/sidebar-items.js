@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":[["SingleOutputChangeStrategy","A change strategy that and proposes change as a single output to the most current supported shielded pool and delegates fee calculation to the provided fee rule."]]};

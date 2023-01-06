@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":[["DecodingError","Errors that can occur in the decoding of Sapling spending keys."]],"mod":[["testing",""]],"struct":[["ExpandedSpendingKey","A Sapling expanded spending key"],["FullViewingKey","A Sapling key that provides the capability to view incoming and outgoing transactions."],["OutgoingViewingKey","An outgoing viewing key"]]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":[["RecipientAddress","An address that funds can be sent to."]],"struct":[["AddressMetadata",""],["UnifiedAddress","A Unified Address."]]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":[["BlockHash",""],["BlockHeader","A Zcash block header."],["BlockHeaderData",""]]};

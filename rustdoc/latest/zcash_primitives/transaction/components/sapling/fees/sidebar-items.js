@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"trait":[["InputView","A trait that provides a minimized view of a Sapling input suitable for use in fee and change calculation."],["OutputView","A trait that provides a minimized view of a Sapling output suitable for use in fee and change calculation."]]};

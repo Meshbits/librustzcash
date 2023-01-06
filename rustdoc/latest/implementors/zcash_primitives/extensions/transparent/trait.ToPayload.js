@@ -1,0 +1,3 @@
+(function() {var implementors = {
+"zcash_extensions":[["impl ToPayload for <a class=\"enum\" href=\"zcash_extensions/transparent/demo/enum.Precondition.html\" title=\"enum zcash_extensions::transparent::demo::Precondition\">Precondition</a>"],["impl ToPayload for <a class=\"enum\" href=\"zcash_extensions/transparent/demo/enum.Witness.html\" title=\"enum zcash_extensions::transparent::demo::Witness\">Witness</a>"]]
+};if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

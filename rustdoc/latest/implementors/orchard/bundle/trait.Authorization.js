@@ -1,0 +1,3 @@
+(function() {var implementors = {
+"zcash_primitives":[["impl Authorization for <a class=\"struct\" href=\"zcash_primitives/transaction/components/orchard/struct.Unauthorized.html\" title=\"struct zcash_primitives::transaction::components::orchard::Unauthorized\">Unauthorized</a>"]]
+};if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

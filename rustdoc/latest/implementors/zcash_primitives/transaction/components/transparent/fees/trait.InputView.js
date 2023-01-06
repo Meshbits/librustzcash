@@ -1,0 +1,3 @@
+(function() {var implementors = {
+"zcash_client_backend":[["impl InputView for <a class=\"struct\" href=\"zcash_client_backend/wallet/struct.WalletTransparentOutput.html\" title=\"struct zcash_client_backend::wallet::WalletTransparentOutput\">WalletTransparentOutput</a>"]]
+};if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

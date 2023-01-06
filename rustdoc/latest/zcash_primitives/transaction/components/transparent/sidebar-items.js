@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":[["builder","Types and functions for building transparent transaction components."],["fees","Types related to computation of fees and change related to the transparent components of a transaction."],["testing",""]],"struct":[["Authorized",""],["Bundle",""],["OutPoint",""],["TxIn",""],["TxOut",""]],"trait":[["Authorization",""],["MapAuth",""]]};

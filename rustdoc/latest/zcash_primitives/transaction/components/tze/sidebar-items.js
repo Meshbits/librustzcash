@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":[["builder","Types and functions for building TZE transaction components"],["fees","Abstractions and types related to fee calculations for TZE components of a transaction."],["testing",""]],"struct":[["Authorized",""],["Bundle",""],["OutPoint",""],["TzeIn",""],["TzeOut",""]],"trait":[["Authorization",""],["MapAuth",""]]};

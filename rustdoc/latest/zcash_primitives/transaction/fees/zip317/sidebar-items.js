@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":[["FeeError","Errors that can occur in ZIP 317 fee computation"]],"struct":[["FeeRule","A `FeeRule` implementation that implements the ZIP 317 fee rule."]]};

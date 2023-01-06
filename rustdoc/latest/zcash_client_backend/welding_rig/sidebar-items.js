@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":[["scan_block","Scans a `CompactBlock` with a set of `ScanningKey`s."]],"trait":[["ScanningKey","A key that can be used to perform trial decryption and nullifier computation for a Sapling `CompactSaplingOutput`"]]};

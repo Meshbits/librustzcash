@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"trait":[["InputView","This trait provides a minimized view of a TZE input suitable for use in fee computation."],["OutputView","This trait provides a minimized view of a TZE output suitable for use in fee computation."]]};

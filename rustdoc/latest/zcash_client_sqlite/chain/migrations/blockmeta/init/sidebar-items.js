@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":[["MIGRATION_ID","The migration that added the `compactblocks_meta` table."]],"struct":[["Migration",""]]};

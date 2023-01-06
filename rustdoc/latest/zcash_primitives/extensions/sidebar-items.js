@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":[["transparent","Core traits and structs for Transparent Zcash Extensions."]]};

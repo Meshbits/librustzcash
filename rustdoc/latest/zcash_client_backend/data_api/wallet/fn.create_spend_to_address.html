@@ -1,0 +1,78 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Creates a transaction paying the specified address from the given account."><meta name="keywords" content="rust, rustlang, rust-lang, create_spend_to_address"><title>create_spend_to_address in zcash_client_backend::data_api::wallet - Rust</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-1f7d512b176f0f72.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Bold-124a1ca42af929b6.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-73bd0883af174920.css" id="mainThemeStyle"><link rel="stylesheet" id="themeStyle" href="../../../static.files/light-4743e13df3dfe8c4.css"><link rel="stylesheet" disabled href="../../../static.files/dark-0e1b889528bd466b.css"><link rel="stylesheet" disabled href="../../../static.files/ayu-65289d5d067c7c66.css"><script id="default-settings" ></script><script src="../../../static.files/storage-d43fa987303ecbbb.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../../static.files/main-bc1b32400f872ddb.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-13285aec31fa243e.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc fn"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="logo-container" href="../../../zcash_client_backend/index.html"><img class="rust-logo" src="../../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><h2></h2></nav><nav class="sidebar"><a class="logo-container" href="../../../zcash_client_backend/index.html"><img class="rust-logo" src="../../../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><div class="sidebar-elems"><h2><a href="index.html">In zcash_client_backend::data_api::wallet</a></h2></div></nav><main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../../../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-5ec35bf9ca753509.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1 class="fqn">Function <a href="../../index.html">zcash_client_backend</a>::<wbr><a href="../index.html">data_api</a>::<wbr><a href="index.html">wallet</a>::<wbr><a class="fn" href="#">create_spend_to_address</a><button id="copy-path" onclick="copy_path(this)" title="Copy item path to clipboard"><img src="../../../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><a class="srclink" href="../../../src/zcash_client_backend/data_api/wallet.rs.html#180-227">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><div class="item-decl"><pre class="rust fn"><code>pub fn create_spend_to_address&lt;DbT, ParamsT&gt;(<br>&nbsp;&nbsp;&nbsp;&nbsp;wallet_db: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.reference.html">&amp;mut </a>DbT,<br>&nbsp;&nbsp;&nbsp;&nbsp;params: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.reference.html">&amp;</a>ParamsT,<br>&nbsp;&nbsp;&nbsp;&nbsp;prover: impl SaplingProver,<br>&nbsp;&nbsp;&nbsp;&nbsp;usk: &amp;UnifiedSpendingKey,<br>&nbsp;&nbsp;&nbsp;&nbsp;to: &amp;<a class="enum" href="../../address/enum.RecipientAddress.html" title="enum zcash_client_backend::address::RecipientAddress">RecipientAddress</a>,<br>&nbsp;&nbsp;&nbsp;&nbsp;amount: Amount,<br>&nbsp;&nbsp;&nbsp;&nbsp;memo: <a class="enum" href="https://doc.rust-lang.org/nightly/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;MemoBytes&gt;,<br>&nbsp;&nbsp;&nbsp;&nbsp;ovk_policy: <a class="enum" href="../../wallet/enum.OvkPolicy.html" title="enum zcash_client_backend::wallet::OvkPolicy">OvkPolicy</a>,<br>&nbsp;&nbsp;&nbsp;&nbsp;min_confirmations: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.u32.html">u32</a><br>) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;DbT::<a class="associatedtype" href="../trait.WalletRead.html#associatedtype.TxRef" title="type zcash_client_backend::data_api::WalletRead::TxRef">TxRef</a>, <a class="enum" href="../error/enum.Error.html" title="enum zcash_client_backend::data_api::error::Error">Error</a>&lt;DbT::<a class="associatedtype" href="../trait.WalletRead.html#associatedtype.Error" title="type zcash_client_backend::data_api::WalletRead::Error">Error</a>, <a class="enum" href="input_selection/enum.GreedyInputSelectorError.html" title="enum zcash_client_backend::data_api::wallet::input_selection::GreedyInputSelectorError">GreedyInputSelectorError</a>&lt;BalanceError, DbT::<a class="associatedtype" href="../trait.WalletRead.html#associatedtype.NoteRef" title="type zcash_client_backend::data_api::WalletRead::NoteRef">NoteRef</a>&gt;, <a class="enum" href="https://doc.rust-lang.org/nightly/core/convert/enum.Infallible.html" title="enum core::convert::Infallible">Infallible</a>, DbT::<a class="associatedtype" href="../trait.WalletRead.html#associatedtype.NoteRef" title="type zcash_client_backend::data_api::WalletRead::NoteRef">NoteRef</a>&gt;&gt;<span class="where fmt-newline">where<br>&nbsp;&nbsp;&nbsp;&nbsp;ParamsT: Parameters + <a class="trait" href="https://doc.rust-lang.org/nightly/core/clone/trait.Clone.html" title="trait core::clone::Clone">Clone</a>,<br>&nbsp;&nbsp;&nbsp;&nbsp;DbT: <a class="trait" href="../trait.WalletWrite.html" title="trait zcash_client_backend::data_api::WalletWrite">WalletWrite</a>,<br>&nbsp;&nbsp;&nbsp;&nbsp;DbT::<a class="associatedtype" href="../trait.WalletRead.html#associatedtype.NoteRef" title="type zcash_client_backend::data_api::WalletRead::NoteRef">NoteRef</a>: <a class="trait" href="https://doc.rust-lang.org/nightly/core/marker/trait.Copy.html" title="trait core::marker::Copy">Copy</a> + <a class="trait" href="https://doc.rust-lang.org/nightly/core/cmp/trait.Eq.html" title="trait core::cmp::Eq">Eq</a> + <a class="trait" href="https://doc.rust-lang.org/nightly/core/cmp/trait.Ord.html" title="trait core::cmp::Ord">Ord</a>,</span></code></pre></div><span class="item-info"><div class="stab deprecated"><span class="emoji">👎</span><span>Deprecated: Use <code>spend</code> instead.</span></div></span><details class="rustdoc-toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Creates a transaction paying the specified address from the given account.</p>
+<p>Returns the row index of the newly-created transaction in the <code>transactions</code> table
+within the data database. The caller can read the raw transaction bytes from the <code>raw</code>
+column in order to broadcast the transaction to the network.</p>
+<p>Do not call this multiple times in parallel, or you will generate transactions that
+double-spend the same notes.</p>
+<h2 id="transaction-privacy"><a href="#transaction-privacy">Transaction privacy</a></h2>
+<p><code>ovk_policy</code> specifies the desired policy for which outgoing viewing key should be
+able to decrypt the outputs of this transaction. This is primarily relevant to
+wallet recovery from backup; in particular, <a href="../../wallet/enum.OvkPolicy.html#variant.Discard" title="OvkPolicy::Discard"><code>OvkPolicy::Discard</code></a> will prevent the
+recipient’s address, and the contents of <code>memo</code>, from ever being recovered from the
+block chain. (The total value sent can always be inferred by the sender from the spent
+notes and received change.)</p>
+<p>Regardless of the specified policy, <code>create_spend_to_address</code> saves <code>to</code>, <code>value</code>, and
+<code>memo</code> in <code>db_data</code>. This can be deleted independently of <code>ovk_policy</code>.</p>
+<p>For details on what transaction information is visible to the holder of a full or
+outgoing viewing key, refer to <a href="https://zips.z.cash/zip-0310">ZIP 310</a>.</p>
+<p>Parameters:</p>
+<ul>
+<li><code>wallet_db</code>: A read/write reference to the wallet database</li>
+<li><code>params</code>: Consensus parameters</li>
+<li><code>prover</code>: The <a href="zcash_primitives::sapling::prover::TxProver"><code>sapling::TxProver</code></a> to use in constructing the shielded transaction.</li>
+<li><code>usk</code>: The unified spending key that controls the funds that will be spent
+in the resulting transaction. This procedure will return an error if the
+USK does not correspond to an account known to the wallet.</li>
+<li><code>to</code>: The address to which <code>amount</code> will be paid.</li>
+<li><code>amount</code>: The amount to send.</li>
+<li><code>memo</code>: A memo to be included in the output to the recipient.</li>
+<li><code>ovk_policy</code>: The policy to use for constructing outgoing viewing keys that
+can allow the sender to view the resulting notes on the blockchain.</li>
+<li><code>min_confirmations</code>: The minimum number of confirmations that a previously
+received note must have in the blockchain in order to be considered for being
+spent. A value of 10 confirmations is recommended.</li>
+</ul>
+<h2 id="examples"><a href="#examples">Examples</a></h2>
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>tempfile::NamedTempFile;
+<span class="kw">use </span>zcash_primitives::{
+    consensus::{<span class="self">self</span>, Network},
+    constants::testnet::COIN_TYPE,
+    transaction::{TxId, components::Amount},
+    zip32::AccountId,
+};
+<span class="kw">use </span>zcash_proofs::prover::LocalTxProver;
+<span class="kw">use </span>zcash_client_backend::{
+    keys::UnifiedSpendingKey,
+    data_api::{wallet::create_spend_to_address, error::Error, testing},
+    wallet::OvkPolicy,
+};
+
+
+<span class="kw">let </span>tx_prover = <span class="kw">match </span>LocalTxProver::with_default_location() {
+    <span class="prelude-val">Some</span>(tx_prover) =&gt; tx_prover,
+    <span class="prelude-val">None </span>=&gt; {
+        <span class="macro">panic!</span>(<span class="string">&quot;Cannot locate the Zcash parameters. Please run zcash-fetch-params or fetch-params.sh to download the parameters, and then re-run the tests.&quot;</span>);
+    }
+};
+
+<span class="kw">let </span>account = AccountId::from(<span class="number">0</span>);
+<span class="kw">let </span>usk = UnifiedSpendingKey::from_seed(<span class="kw-2">&amp;</span>Network::TestNetwork, <span class="kw-2">&amp;</span>[<span class="number">0</span>; <span class="number">32</span>][..], account).unwrap();
+<span class="kw">let </span>to = usk.to_unified_full_viewing_key().default_address().<span class="number">0</span>.into();
+
+<span class="kw">let </span><span class="kw-2">mut </span>db_read = testing::MockWalletDb {
+    network: Network::TestNetwork
+};
+
+create_spend_to_address(
+    <span class="kw-2">&amp;mut </span>db_read,
+    <span class="kw-2">&amp;</span>Network::TestNetwork,
+    tx_prover,
+    <span class="kw-2">&amp;</span>usk,
+    <span class="kw-2">&amp;</span>to,
+    Amount::from_u64(<span class="number">1</span>).unwrap(),
+    <span class="prelude-val">None</span>,
+    OvkPolicy::Sender,
+    <span class="number">10
+</span>)
+</code></pre></div>
+</div></details></section></div></main><div id="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="zcash_client_backend" data-themes="" data-resource-suffix="" data-rustdoc-version="1.68.0-nightly (388538fc9 2023-01-05)" data-search-js="search-181581080540673f.js" data-settings-js="settings-bebeae96e00e4617.js" data-settings-css="settings-58836c674e2f7bd2.css" ></div></body></html>

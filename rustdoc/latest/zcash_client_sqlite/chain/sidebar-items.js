@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":[["init","Functions for initializing the various databases."],["migrations",""]],"struct":[["BlockMeta","Data structure representing a row in the block metadata database."]]};
